@@ -1,25 +1,9 @@
+mod grammars;
+
 use lrpar::CTParserBuilder;
 use cfgrammar::yacc::{YaccKind, YaccOriginalActionKind};
 use std::env;
 
-// fn cfg() {
-//     let cfg_s = "\
-//     %start S\
-//     %%
-//     S: A | B;
-//     A: 'a' | 'b';
-//     B: 'b' | 'c';
-//     ";
-//     let cfg = cfgrammar::yacc::YaccGrammar::new(
-//         YaccKind::Original(YaccOriginalActionKind::GenericParseTree),
-//         cfg_s)
-//         .expect("Can't create a Yacc grammar");
-//     println!("=> cfg rules");
-//     println!("no of tokens: {}", cfg.tokens_len().0);
-//     for pid in cfg.iter_pidxs() {
-//         println!("{}", cfg.pp_prod(pid));
-//     }
-// }
 
 fn main() {
     let args: Vec<String> = env::args().collect();

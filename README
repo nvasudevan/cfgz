@@ -1,0 +1,3 @@
+to generate graph using bison: `bison --graph=x.graph x.y`
+to generate graph using hyacc: `hyacc -g x.y`
+to generate a graphviz image from graph: `dot -Tpng x.graph -o x.png`

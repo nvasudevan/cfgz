@@ -1,53 +1,69 @@
-use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Formatter;
 
 mod gen;
 
 #[derive(Debug)]
-pub(crate) enum TokenType {
-    non_terminal,
-    terminal
+pub(crate) enum SymType {
+    NonTerminal,
+    Terminal
 }
 
 #[derive(Debug)]
-pub(crate) struct NonTermToken {
+pub(crate) struct NonTermSymbol {
     tok: String,
-    tok_type: TokenType
+    tok_type: SymType
 }
 
-impl fmt::Display for NonTermToken {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl fmt::Display for NonTermSymbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", &self.tok)
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct TermToken {
-    tok: String,
-    tok_type: TokenType
-}
-
-impl fmt::Display for TermToken {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "'{}'", &self.tok)
+impl NonTermSymbol {
+    fn new(tok: String) -> Self {
+       Self {
+           tok,
+           tok_type: SymType::NonTerminal
+       }
     }
 }
 
 #[derive(Debug)]
-pub(crate) enum LexToken {
-    non_term(NonTermToken),
-    terminal(TermToken)
+pub(crate) struct TermSymbol {
+    tok: String,
+    tok_type: SymType
 }
 
-impl fmt::Display for LexToken {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl fmt::Display for TermSymbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "'{}'", &self.tok)
+    }
+}
+
+impl TermSymbol {
+    fn new(tok: String) -> Self {
+        Self {
+            tok,
+            tok_type: SymType::Terminal
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum LexSymbol {
+    NonTerm(NonTermSymbol),
+    Term(TermSymbol)
+}
+
+impl fmt::Display for LexSymbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = String::new();
         match self {
-            LexToken::non_term(nt) => {
+            LexSymbol::NonTerm(nt) => {
                nt.fmt(f)
             },
-            LexToken::terminal(term) => {
+            LexSymbol::Term(term) => {
                 term.fmt(f)
             }
         }
@@ -56,11 +72,11 @@ impl fmt::Display for LexToken {
 
 #[derive(Debug)]
 pub(crate) struct RuleAlt {
-   alt: Vec<LexToken>
+   alt: Vec<LexSymbol>
 }
 
 impl fmt::Display for RuleAlt {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         let mut alt_iter = self.alt.iter();
         if let Some(first_tok) = alt_iter.next() {
@@ -73,6 +89,24 @@ impl fmt::Display for RuleAlt {
     }
 }
 
+impl RuleAlt {
+    pub(crate) fn new() -> Self {
+        Self {
+            alt: vec![]
+        }
+    }
+
+    pub(crate) fn append_sym(&mut self, sym: LexSymbol) {
+        self.alt.push(sym);
+    }
+
+    pub(crate) fn as_lrpar(&self) -> String {
+        let s = format!("{} {{ }}", self);
+        println!("s: {}", s);
+        s
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct CfgRule {
     lhs: String,
@@ -80,7 +114,7 @@ pub(crate) struct CfgRule {
 }
 
 impl fmt::Display for CfgRule {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut rhs_s = String::new();
         let mut rhs_iter = self.rhs.iter();
         if let Some(first_alt) = rhs_iter.next() {
@@ -94,13 +128,32 @@ impl fmt::Display for CfgRule {
     }
 }
 
+impl CfgRule {
+    pub(crate) fn new(lhs: String, rhs: Vec<RuleAlt>) -> Self {
+        Self {
+            lhs,
+            rhs
+        }
+    }
+
+    pub(crate) fn as_lrpar(&self) -> String {
+        // let mut alts_s = Vec::<String>::new();
+        let alts_s: Vec<String> = self.rhs.iter().
+            map(|alt| alt.as_lrpar())
+            .collect();
+        let rhs_s = alts_s.join(" | ");
+
+        format!("{} ->: {}", self.lhs, rhs_s)
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Cfg {
     rules: Vec<CfgRule>
 }
 
 impl fmt::Display for Cfg {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         let mut rules_iter = self.rules.iter();
         if let Some(start_rule) = rules_iter.next() {
@@ -114,26 +167,146 @@ impl fmt::Display for Cfg {
 }
 
 impl Cfg {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             rules: vec![]
         }
     }
 
-    pub fn set_rules(&mut self, rules: Vec<CfgRule>) {
+    pub(crate) fn set_rules(&mut self, rules: Vec<CfgRule>) {
         self.rules = rules;
     }
 
-    pub fn add_rule(&mut self, rule: CfgRule) {
+    pub(crate) fn add_rule(&mut self, rule: CfgRule) {
         self.rules.push(rule);
     }
 
-    pub fn rules(&self) -> &Vec<CfgRule> {
+    pub(crate) fn rules(&self) -> &Vec<CfgRule> {
         &self.rules
     }
 
-    pub fn start_rule(&self) -> Option<&CfgRule> {
+    pub(crate) fn start_rule(&self) -> Option<&CfgRule> {
         self.rules.first()
     }
 
+    pub(crate) fn as_yacc(&self) -> String {
+        let s_rule = self.start_rule()
+            .expect("Cfg is missing a start rule!");
+
+        format!("%start {}\n\n%%\n\n{}\n\n%%", s_rule.lhs, self)
+    }
+
+    pub(crate) fn as_lrpar(&self) -> String {
+        let s_rule = self.start_rule()
+            .expect("Cfg is missing a start rule!");
+
+        let mut s = String::new();
+        for rule in &self.rules {
+           s = format!("{}{}\n;", s, rule.as_lrpar());
+        }
+
+        format!("%start {}\n\n%%\n\n{}\n\n%%", s_rule.lhs, s)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LexSymbol, NonTermSymbol, TermSymbol};
+    use super::{RuleAlt};
+    use crate::grammars::{CfgRule, Cfg};
+
+    fn test_alt_1() -> RuleAlt {
+        let mut alt = RuleAlt::new();
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        alt.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("c".to_string())));
+
+        alt
+    }
+
+    fn test_alt_2() -> RuleAlt {
+        let mut alt = RuleAlt::new();
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("d".to_string())));
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("e".to_string())));
+
+        alt
+    }
+
+    fn rule_S() -> (String, Vec<RuleAlt>) {
+        let lhs = "S".to_string();
+        let alt1 = test_alt_1(); // 'a' B 'c'
+        let alt2 = test_alt_2(); // 'c' D 'e'
+        let rhs = vec![alt1, alt2];
+
+        (lhs, rhs)
+    }
+
+    fn rule_B() -> (String, Vec<RuleAlt>) {
+        let lhs = "B".to_string();
+        let mut alt = RuleAlt::new();
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        let rhs = vec![alt];
+
+        (lhs, rhs)
+    }
+
+    fn simple_cfg() -> Cfg {
+        let mut cfg = Cfg::new();
+        let (lhs_S, rhs_S) = rule_S();
+        cfg.add_rule(CfgRule::new(lhs_S, rhs_S));
+
+        let (lhs_B, rhs_B) = rule_B();
+        cfg.add_rule(CfgRule::new(lhs_B, rhs_B));
+
+        cfg
+    }
+
+    #[test]
+    fn test_alt() {
+        let alt1 = test_alt_1();
+        assert_eq!(alt1.to_string(), "'a' B 'c'");
+    }
+
+    #[test]
+    fn test_rule() {
+        let (lhs, rhs) = rule_S();
+        let rule = CfgRule::new(lhs, rhs);
+        assert_eq!(rule.to_string(), "S: 'a' B 'c' | 'd' 'e'")
+    }
+
+    #[test]
+    fn test_cfg() {
+        let cfg = simple_cfg();
+        let cfg_expected = format!("S: 'a' B 'c' | 'd' 'e'\n;B: 'b'\n;");
+
+        assert_eq!(cfg.to_string(), cfg_expected);
+    }
+
+    #[test]
+    fn test_cfg_yacc() {
+        let cfg = simple_cfg();
+        let cfg_header = "%start S\n\n%%\n\n".to_string();
+        let cfg_footer = "\n\n%%".to_string();
+        let cfg_expected = format!(
+            "{}S: 'a' B 'c' | 'd' 'e'\n;B: 'b'\n;{}",
+            cfg_header,
+            cfg_footer
+        );
+
+        assert_eq!(cfg.as_yacc(), cfg_expected);
+    }
+
+    #[test]
+    fn test_cfg_lrpar() {
+        let cfg = simple_cfg();
+        let cfg_header = "%start S\n\n%%\n\n".to_string();
+        let cfg_footer = "\n\n%%".to_string();
+        let cfg_expected = format!(
+            "{}S ->: 'a' B 'c' {{ }} | 'd' 'e' {{ }}\n;B ->: 'b' {{ }}\n;{}",
+            cfg_header,
+            cfg_footer
+        );
+
+        assert_eq!(cfg.as_lrpar(), cfg_expected);
+    }
 }

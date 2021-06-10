@@ -19,3 +19,7 @@ lrpar = "0.10.1"
 cfgrammar = "0.10.1"
 lrlex = "0.10.1"
 lrpar = "0.10.1"
+
+[dependencies.rand]
+features = ["small_rng"]
+version = "0.7.3"

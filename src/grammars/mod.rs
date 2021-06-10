@@ -1,8 +1,9 @@
 use std::fmt;
 
 pub(crate) mod gen;
+mod valid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) enum SymType {
     NonTerminal,
     Terminal
@@ -29,6 +30,16 @@ impl NonTermSymbol {
     }
 }
 
+impl PartialEq for NonTermSymbol {
+    fn eq(&self, other: &Self) -> bool {
+        if self.tok_type.eq(&other.tok_type) && self.tok.eq(&other.tok) {
+            return true;
+        }
+
+        false
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct TermSymbol {
     tok: String,
@@ -50,7 +61,17 @@ impl TermSymbol {
     }
 }
 
-#[derive(Debug, Clone)]
+impl PartialEq for TermSymbol {
+    fn eq(&self, other: &Self) -> bool {
+        if self.tok_type.eq(&other.tok_type) && self.tok.eq(&other.tok) {
+            return true;
+        }
+
+        false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum LexSymbol {
     NonTerm(NonTermSymbol),
     Term(TermSymbol)
@@ -86,6 +107,16 @@ impl fmt::Display for RuleAlt {
             }
         }
         write!(f, "{}", s)
+    }
+}
+
+impl PartialEq for RuleAlt {
+    fn eq(&self, other: &Self) -> bool {
+        if self.to_string().eq(&other.to_string()) {
+            return true;
+        }
+
+        false
     }
 }
 

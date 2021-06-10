@@ -1,14 +1,14 @@
 use std::fmt;
 
-mod gen;
+pub(crate) mod gen;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum SymType {
     NonTerminal,
     Terminal
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct NonTermSymbol {
     tok: String,
     tok_type: SymType
@@ -29,7 +29,7 @@ impl NonTermSymbol {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct TermSymbol {
     tok: String,
     tok_type: SymType
@@ -50,7 +50,7 @@ impl TermSymbol {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum LexSymbol {
     NonTerm(NonTermSymbol),
     Term(TermSymbol)
@@ -72,13 +72,13 @@ impl fmt::Display for LexSymbol {
 
 #[derive(Debug)]
 pub(crate) struct RuleAlt {
-   alt: Vec<LexSymbol>
+   lex_symbols: Vec<LexSymbol>
 }
 
 impl fmt::Display for RuleAlt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
-        let mut alt_iter = self.alt.iter();
+        let mut alt_iter = self.lex_symbols.iter();
         if let Some(first_tok) = alt_iter.next() {
             s += first_tok.to_string().as_str();
             for tok in alt_iter {
@@ -90,14 +90,14 @@ impl fmt::Display for RuleAlt {
 }
 
 impl RuleAlt {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(lex_symbols: Vec<LexSymbol>) -> Self {
         Self {
-            alt: vec![]
+            lex_symbols
         }
     }
 
     pub(crate) fn append_sym(&mut self, sym: LexSymbol) {
-        self.alt.push(sym);
+        self.lex_symbols.push(sym);
     }
 
     pub(crate) fn as_lrpar(&self) -> String {
@@ -157,9 +157,9 @@ impl fmt::Display for Cfg {
         let mut s = String::new();
         let mut rules_iter = self.rules.iter();
         if let Some(start_rule) = rules_iter.next() {
-            s = format!("{}\n;", start_rule);
+            s = format!("{}\n;\n", start_rule);
             for rule in rules_iter {
-                s = format!("{}{}\n;", s, rule);
+                s = format!("{}{}\n;\n", s, rule);
             }
         }
         write!(f, "{}", s)
@@ -211,9 +211,10 @@ impl Cfg {
 
 #[cfg(test)]
 mod tests {
+    use crate::grammars::{Cfg, CfgRule};
+
     use super::{LexSymbol, NonTermSymbol, TermSymbol};
-    use super::{RuleAlt};
-    use crate::grammars::{CfgRule, Cfg};
+    use super::RuleAlt;
 
     fn test_alt_1() -> RuleAlt {
         let mut alt = RuleAlt::new();

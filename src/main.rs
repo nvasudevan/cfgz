@@ -1,5 +1,7 @@
 use std::env;
 
+extern crate rayon;
+
 mod grammars;
 mod lrpar;
 
@@ -15,5 +17,5 @@ fn lr1_by_lrpar() {
 }
 
 fn main() {
-    grammars::gen::gen(10, 1);
+    grammars::gen::gen(10, 10);
 }

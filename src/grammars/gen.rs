@@ -1,11 +1,12 @@
 use std::fmt::Debug;
+use std::ops::Index;
 
 use rand::{Rng, thread_rng};
 use rand::prelude::SliceRandom;
+use rayon::prelude::*;
 
 use crate::grammars::{Cfg, CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
 use crate::grammars::valid;
-use std::ops::Index;
 
 // fn cfg() {
 //     let cfg_s = "\
@@ -48,7 +49,7 @@ const MIN_ALTS: usize = 1;
 const MAX_ALTS: usize = 3;
 const MIN_SYMS_IN_ALT: usize = 0;
 const MAX_SYMS_IN_ALT: usize = 5;
-const MAX_ITERATIONS: usize = 3;
+const MAX_ITERATIONS: usize = 5;
 
 struct CfgGen {
     non_terms: Vec<String>,
@@ -82,9 +83,8 @@ impl CfgGen {
             .iter()
             .position(|lx_sym| lx_sym.eq(sym))
             .expect("Unable to find lex symbol in nt_reach");
-        // println!("[before]nt_reach: {:?}", nt_reach);
         nt_reach.remove(sym_i);
-        println!("nt_reach: {:?}", nt_reach);
+        // println!("nt_reach: {:?}", nt_reach);
     }
 
     fn get_lex_sym(&self, mut nt_reach: &mut Vec<LexSymbol>, nt: &str) -> LexSymbol {
@@ -101,7 +101,7 @@ impl CfgGen {
                 // // now remove the chosen sym from nt_reach as there is path from room
                 self.remove_sym(&mut nt_reach, &sym_cl);
                 sym_cl
-            },
+            }
             _ => {
                 // if there no symbols left in nt_reach, pick from lex_syms
                 // and avoid X: X;
@@ -139,7 +139,7 @@ impl CfgGen {
 
                 // now choose the remaining syms
                 let mut more_syms = self.lex_syms
-                    .choose_multiple(&mut thread_rng(), no_syms-1)
+                    .choose_multiple(&mut thread_rng(), no_syms - 1)
                     .cloned()
                     .collect();
                 syms.append(&mut more_syms);
@@ -205,28 +205,31 @@ impl CfgGen {
         }
     }
 
-    fn generate(&self, n: usize) -> Vec<Cfg> {
-        let mut cfgs = Vec::<Cfg>::new();
-        let mut cnt = 0;
-        loop {
-            let mut cfg = Cfg::new();
-            let mut nt_reach = Vec::<LexSymbol>::new();
-            for (n, nt) in self.non_terms.iter().enumerate() {
-                if n > 0 {
-                    nt_reach.push(LexSymbol::NonTerm(NonTermSymbol::new(nt.to_string())));
-                }
-            }
-            nt_reach.shuffle(&mut thread_rng());
-            for nt in &self.non_terms {
-                cfg.add_rule(self.gen_rule(nt, &mut nt_reach));
-            }
-            println!("cfg: \n\n{}", cfg);
-            cfgs.push(cfg);
-            cnt += 1;
-            if cnt >= n {
-                break;
+    fn generate(&self, non_terms: &Vec<LexSymbol>) -> Cfg {
+        let mut nt_reach = non_terms.clone();
+        nt_reach.shuffle(&mut thread_rng());
+        let rules: Vec<CfgRule> = self.non_terms
+            .iter()
+            .map(|nt| {
+                self.gen_rule(nt, &mut nt_reach)
+            })
+            .collect();
+
+        Cfg::new(rules)
+    }
+
+    fn gen_par(&self, n: usize) -> Vec<Cfg> {
+        let mut non_terms = Vec::<LexSymbol>::new();
+        for (n, nt) in self.non_terms.iter().enumerate() {
+            if n > 0 {
+                non_terms.push(LexSymbol::NonTerm(NonTermSymbol::new(nt.to_string())));
             }
         }
+        let cfgs: Vec<Cfg> = (0..n + 1)
+            .into_par_iter()
+            .map(|_| self.generate(&non_terms))
+            .collect();
+
         cfgs
     }
 }
@@ -246,5 +249,8 @@ pub(crate) fn gen(cfg_size: usize, n: usize) {
         .collect();
 
     let cfg_gen = CfgGen::new(non_terms, terms);
-    let _ = cfg_gen.generate(n);
+    let cfgs = cfg_gen.gen_par(n);
+    for cfg in cfgs {
+        println!("cfg: \n\n{}\n=====", cfg);
+    }
 }

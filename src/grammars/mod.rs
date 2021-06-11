@@ -198,14 +198,10 @@ impl fmt::Display for Cfg {
 }
 
 impl Cfg {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(rules: Vec<CfgRule>) -> Self {
         Self {
-            rules: vec![]
+            rules
         }
-    }
-
-    pub(crate) fn set_rules(&mut self, rules: Vec<CfgRule>) {
-        self.rules = rules;
     }
 
     pub(crate) fn add_rule(&mut self, rule: CfgRule) {
@@ -283,14 +279,14 @@ mod tests {
     }
 
     fn simple_cfg() -> Cfg {
-        let mut cfg = Cfg::new();
+        let mut rules: Vec<CfgRule> = vec![];
         let (lhs_S, rhs_S) = rule_S();
-        cfg.add_rule(CfgRule::new(lhs_S, rhs_S));
+        rules.push(CfgRule::new(lhs_S, rhs_S));
 
         let (lhs_B, rhs_B) = rule_B();
-        cfg.add_rule(CfgRule::new(lhs_B, rhs_B));
+        rules.push(CfgRule::new(lhs_B, rhs_B));
 
-        cfg
+        Cfg::new(rules)
     }
 
     #[test]

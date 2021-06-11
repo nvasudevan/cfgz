@@ -15,5 +15,5 @@ fn lr1_by_lrpar() {
 }
 
 fn main() {
-    grammars::gen::gen(10);
+    grammars::gen::gen(10, 1);
 }

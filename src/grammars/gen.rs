@@ -1,3 +1,4 @@
+
 use std::fmt::Debug;
 use std::ops::Index;
 
@@ -7,6 +8,7 @@ use rayon::prelude::*;
 
 use crate::grammars::{Cfg, CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
 use crate::grammars::valid;
+use crate::lrpar::is_lr1;
 
 // fn cfg() {
 //     let cfg_s = "\
@@ -205,7 +207,8 @@ impl CfgGen {
         }
     }
 
-    fn generate(&self, non_terms: &Vec<LexSymbol>) -> Cfg {
+    fn generate(&self, non_terms: &Vec<LexSymbol>, cfgp: &str) -> bool {
+        eprint!(".");
         let mut nt_reach = non_terms.clone();
         nt_reach.shuffle(&mut thread_rng());
         let rules: Vec<CfgRule> = self.non_terms
@@ -215,19 +218,26 @@ impl CfgGen {
             })
             .collect();
 
-        Cfg::new(rules)
+        let cfg = Cfg::new(rules);
+        let _ = std::fs::write(cfgp, cfg.as_lrpar().as_str())
+            .expect("Unable to write cfg to file");
+        is_lr1(cfgp)
     }
 
-    fn gen_par(&self, n: usize) -> Vec<Cfg> {
+    fn gen_par(&self, n: usize) -> Vec<usize> {
         let mut non_terms = Vec::<LexSymbol>::new();
         for (n, nt) in self.non_terms.iter().enumerate() {
             if n > 0 {
                 non_terms.push(LexSymbol::NonTerm(NonTermSymbol::new(nt.to_string())));
             }
         }
-        let cfgs: Vec<Cfg> = (0..n + 1)
+        let cfgs: Vec<usize> = (0..n)
             .into_par_iter()
-            .map(|_| self.generate(&non_terms))
+            .filter(|i| {
+                let cfgp = format!("/tmp/lrpar_{}.y", i);
+                let r = self.generate(&non_terms, &cfgp);
+                r == true
+            })
             .collect();
 
         cfgs
@@ -236,7 +246,7 @@ impl CfgGen {
 
 /// Generate a CFG of size `cfg_size`
 /// By `size`, we mean the number of rules
-pub(crate) fn gen(cfg_size: usize, n: usize) {
+pub(crate) fn start(cfg_size: usize, n: usize) {
     let mut non_terms: Vec<String> = ASCII_UPPER
         .choose_multiple(&mut thread_rng(), cfg_size - 1)
         .map(|c| c.to_string())
@@ -250,7 +260,9 @@ pub(crate) fn gen(cfg_size: usize, n: usize) {
 
     let cfg_gen = CfgGen::new(non_terms, terms);
     let cfgs = cfg_gen.gen_par(n);
-    for cfg in cfgs {
-        println!("cfg: \n\n{}\n=====", cfg);
-    }
+    println!("cfgs: {:?}", cfgs);
+
+    // for cfg in cfgs {
+    //     println!("cfg: \n\n{}\n=====", cfg.as_lrpar());
+    // }
 }

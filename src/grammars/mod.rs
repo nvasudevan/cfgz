@@ -1,18 +1,17 @@
 use std::fmt;
 
 pub(crate) mod gen;
-mod valid;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) enum SymType {
     NonTerminal,
-    Terminal
+    Terminal,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct NonTermSymbol {
     tok: String,
-    tok_type: SymType
+    tok_type: SymType,
 }
 
 impl fmt::Display for NonTermSymbol {
@@ -23,10 +22,10 @@ impl fmt::Display for NonTermSymbol {
 
 impl NonTermSymbol {
     fn new(tok: String) -> Self {
-       Self {
-           tok,
-           tok_type: SymType::NonTerminal
-       }
+        Self {
+            tok,
+            tok_type: SymType::NonTerminal,
+        }
     }
 }
 
@@ -43,7 +42,7 @@ impl PartialEq for NonTermSymbol {
 #[derive(Debug, Clone)]
 pub(crate) struct TermSymbol {
     tok: String,
-    tok_type: SymType
+    tok_type: SymType,
 }
 
 impl fmt::Display for TermSymbol {
@@ -56,7 +55,7 @@ impl TermSymbol {
     fn new(tok: String) -> Self {
         Self {
             tok,
-            tok_type: SymType::Terminal
+            tok_type: SymType::Terminal,
         }
     }
 }
@@ -74,7 +73,7 @@ impl PartialEq for TermSymbol {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum LexSymbol {
     NonTerm(NonTermSymbol),
-    Term(TermSymbol)
+    Term(TermSymbol),
 }
 
 impl fmt::Display for LexSymbol {
@@ -82,8 +81,8 @@ impl fmt::Display for LexSymbol {
         let s = String::new();
         match self {
             LexSymbol::NonTerm(nt) => {
-               nt.fmt(f)
-            },
+                nt.fmt(f)
+            }
             LexSymbol::Term(term) => {
                 term.fmt(f)
             }
@@ -93,7 +92,7 @@ impl fmt::Display for LexSymbol {
 
 #[derive(Debug)]
 pub(crate) struct RuleAlt {
-   lex_symbols: Vec<LexSymbol>
+    lex_symbols: Vec<LexSymbol>,
 }
 
 impl fmt::Display for RuleAlt {
@@ -132,16 +131,14 @@ impl RuleAlt {
     }
 
     pub(crate) fn as_lrpar(&self) -> String {
-        let s = format!("{} {{ }}", self);
-        println!("s: {}", s);
-        s
+        format!("{} {{ }}", self)
     }
 }
 
 #[derive(Debug)]
 pub(crate) struct CfgRule {
     lhs: String,
-    rhs: Vec<RuleAlt>
+    rhs: Vec<RuleAlt>,
 }
 
 impl fmt::Display for CfgRule {
@@ -163,7 +160,7 @@ impl CfgRule {
     pub(crate) fn new(lhs: String, rhs: Vec<RuleAlt>) -> Self {
         Self {
             lhs,
-            rhs
+            rhs,
         }
     }
 
@@ -180,7 +177,7 @@ impl CfgRule {
 
 #[derive(Debug)]
 pub(crate) struct Cfg {
-    rules: Vec<CfgRule>
+    rules: Vec<CfgRule>,
 }
 
 impl fmt::Display for Cfg {
@@ -229,7 +226,7 @@ impl Cfg {
 
         let mut s = String::new();
         for rule in &self.rules {
-           s = format!("{}{}\n;", s, rule.as_lrpar());
+            s = format!("{}{}\n;", s, rule.as_lrpar());
         }
 
         format!("%start {}\n\n%%\n\n{}\n\n%%", s_rule.lhs, s)

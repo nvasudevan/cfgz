@@ -165,7 +165,6 @@ impl CfgRule {
     }
 
     pub(crate) fn as_lrpar(&self) -> String {
-        // let mut alts_s = Vec::<String>::new();
         let alts_s: Vec<String> = self.rhs.iter().
             map(|alt| alt.as_lrpar())
             .collect();
@@ -213,11 +212,18 @@ impl Cfg {
         self.rules.first()
     }
 
-    pub(crate) fn as_yacc(&self) -> String {
+    pub(crate) fn as_hyacc(&self) -> String {
         let s_rule = self.start_rule()
             .expect("Cfg is missing a start rule!");
 
         format!("%start {}\n\n%%\n\n{}\n\n%%", s_rule.lhs, self)
+    }
+
+    pub(crate) fn as_yacc(&self) -> String {
+        let s_rule = self.start_rule()
+            .expect("Cfg is missing a start rule!");
+
+        format!("%define lr.type canonical-lr\n\n{}", self.as_hyacc())
     }
 
     pub(crate) fn as_lrpar(&self) -> String {
@@ -226,7 +232,7 @@ impl Cfg {
 
         let mut s = String::new();
         for rule in &self.rules {
-            s = format!("{}{}\n;", s, rule.as_lrpar());
+            s = format!("{}{}\n;\n", s, rule.as_lrpar());
         }
 
         format!("%start {}\n\n%%\n\n{}\n\n%%", s_rule.lhs, s)

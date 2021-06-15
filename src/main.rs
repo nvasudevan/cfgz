@@ -22,5 +22,5 @@ fn lr1_by_lrpar() {
 }
 
 fn main() {
-    grammars::gen::start(10, 3);
+    grammars::gen::start(10, 100);
 }

@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use std::{fmt, fs};
+use std::{fmt, fs, io};
 use std::ops::Index;
 
 use chrono::prelude::Local;
@@ -13,6 +13,10 @@ use tempfile;
 use crate::grammars::{Cfg, CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
 use crate::lr1_check;
 use tempfile::TempDir;
+use chrono::Timelike;
+use std::io::Error;
+use std::path::Path;
+use std::fs::File;
 
 // fn cfg() {
 //     let cfg_s = "\
@@ -91,7 +95,7 @@ impl CfgLr1Result {
 
 struct CfgGenResult {
     lr1_checks: Vec<CfgLr1Result>,
-]}
+}
 
 impl CfgGenResult {
     pub(crate) fn new(lr1_checks: Vec<CfgLr1Result>) -> Self {
@@ -100,41 +104,47 @@ impl CfgGenResult {
         }
     }
 
-    pub(crate) fn show(&self) {
+    pub(crate) fn show(&self, results_txt: &Path) -> io::Result<()> {
+        let lrk_cfgs: Vec<&CfgLr1Result> = self.lr1_checks
+            .iter()
+            .filter(|res|
+                res.lrpar_lr1 && res.bison_lr1 && res.hyacc_lr1
+            )
+            .collect();
+
+        println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), self.lr1_checks.len());
+        if lrk_cfgs.len() > 0 {
+            println!("---------");
+            for res in lrk_cfgs {
+                println!("{}", res.cfgp);
+            }
+            println!("---------\n\n");
+        }
         let mut table = Table::new();
-        table.add_row(row!["cfg", "lrpar(lr1)", "msg", "bison(LR1)", "msg", "hyacc(LR1)", "msg"]);
+        table.add_row(row!["cfg", "lrpar", "bison", "hyacc", "msg (lrpar)", "msg (bison)", "msg (hyacc)"]);
         for res in &self.lr1_checks {
             table.add_row(
                 row![
-                    res.lrparp, res.lrpar_lr1, res.lrpar_msg, res.bison_lr1, res.bison_msg, res.hyacc_lr1, res.hyacc_msg
+                    res.cfgp, res.lrpar_lr1, res.bison_lr1, res.hyacc_lr1, res.lrpar_msg, res.bison_msg, res.hyacc_msg
                 ]);
         }
 
-        table.printstd();
-        println!();
-    }
-    // pub(crate) fn lr1_cfgs(&self)
-}
+        std::fs::write(results_txt, table.to_string())?;
 
-// impl fmt::Display for CfgGenResult {
-//     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-//         let s = String::new();
-//         for res in self.lr1_checks {}
-//
-//         write!(f, "{}", s)
-//     }
-// }
+        Ok(())
+    }
+}
 
 struct CfgGen {
     non_terms: Vec<String>,
     terms: Vec<String>,
     lex_syms: Vec<LexSymbol>,
-    temp_dir: TempDir,
+    temp_dir: String,
     gen_result: CfgGenResult,
 }
 
 impl CfgGen {
-    fn new(non_terms: Vec<String>, terms: Vec<String>, temp_dir: TempDir) -> Self {
+    fn new(non_terms: Vec<String>, terms: Vec<String>, temp_dir: String) -> Self {
         let mut lex_syms: Vec<LexSymbol> = terms
             .iter()
             .map(|t| LexSymbol::Term(TermSymbol::new(t.to_string())))
@@ -387,10 +397,13 @@ pub(crate) fn start(cfg_size: usize, n: usize) {
         .collect();
 
     let now = Local::now();
-    let temp_dir = tempfile::tempdir()
-        .expect("Unable to create a temporary directory");
-    println!("=> generating grammars in temp dir: {}", temp_dir.path().to_str().unwrap());
-    let cfg_gen = CfgGen::new(non_terms, terms, temp_dir);
+    let temp_dir = format!("/tmp/cfg_run_{}_{}_{}", now.hour(), now.minute(), now.second());
+    fs::create_dir(&temp_dir).expect("Unable to create a temporary directory");
+    println!("=> generating grammars in temp dir: {}", &temp_dir);
+    let cfg_gen = CfgGen::new(non_terms, terms, temp_dir.to_string());
     let cfg_result = cfg_gen.gen_par(n);
-    cfg_result.show();
+    let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
+    cfg_result.show(&results_txt.as_path())
+        .expect("Unable to save the results from Cfg run in a file");
+    println!("=> results stored in {}", results_txt.to_str().unwrap());
 }

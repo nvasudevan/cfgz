@@ -104,22 +104,16 @@ impl CfgGenResult {
         }
     }
 
-    pub(crate) fn show(&self, results_txt: &Path) -> io::Result<()> {
-        let lrk_cfgs: Vec<&CfgLr1Result> = self.lr1_checks
+    pub(crate) fn lrk_grammars(&self) -> Vec<&CfgLr1Result> {
+        self.lr1_checks
             .iter()
             .filter(|res|
                 res.lrpar_lr1 && res.bison_lr1 && res.hyacc_lr1
             )
-            .collect();
+            .collect()
+    }
 
-        println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), self.lr1_checks.len());
-        if lrk_cfgs.len() > 0 {
-            println!("---------");
-            for res in lrk_cfgs {
-                println!("{}", res.cfgp);
-            }
-            println!("---------\n\n");
-        }
+    pub(crate) fn write_results(&self, results_txt: &Path) -> io::Result<()> {
         let mut table = Table::new();
         table.add_row(row!["cfg", "lrpar", "bison", "hyacc", "msg (lrpar)", "msg (bison)", "msg (hyacc)"]);
         for res in &self.lr1_checks {
@@ -362,16 +356,6 @@ impl CfgGen {
     }
 
     fn gen_par(&self, n: usize) -> CfgGenResult {
-        // let cfgs: Vec<usize> = (0..n)
-        //     .into_par_iter()
-        //     .filter(|i| {
-        //         let lrparp = format!("/tmp/lrpar/{}.y", i);
-        //         let bisonp = format!("/tmp/bison/{}.y", i);
-        //         let hyaccp = format!("/tmp/hyacc/{}.y", i);
-        //         let r = self.generate(&lrparp, &bisonp, &hyaccp);
-        //         r == true
-        //     })
-        //     .collect();
         let cfg_result: Vec<CfgLr1Result> = (0..n)
             .into_par_iter()
             .filter_map(|i| {
@@ -397,13 +381,31 @@ pub(crate) fn start(cfg_size: usize, n: usize) {
         .collect();
 
     let now = Local::now();
-    let temp_dir = format!("/tmp/cfg_run_{}_{}_{}", now.hour(), now.minute(), now.second());
+    let cfg_dir = format!("cfg_run_{}_{}_{}", now.hour(), now.minute(), now.second());
+    let temp_dir = format!("/tmp/{}", cfg_dir);
     fs::create_dir(&temp_dir).expect("Unable to create a temporary directory");
     println!("=> generating grammars in temp dir: {}", &temp_dir);
     let cfg_gen = CfgGen::new(non_terms, terms, temp_dir.to_string());
     let cfg_result = cfg_gen.gen_par(n);
     let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
-    cfg_result.show(&results_txt.as_path())
+    let lrk_cfgs = cfg_result.lrk_grammars();
+    println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
+    if lrk_cfgs.len() > 0 {
+        let target_cfg_dir = format!("./grammars/lr_k/{}", cfg_dir);
+        fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
+        println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
+        println!("--- lr(k) grammars ---");
+        for res in lrk_cfgs {
+            let cfg_f = res.cfgp.split("/").last().unwrap();
+            let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
+            println!("copying {} => {}", &res.cfgp, &target_cfg_f);
+            std::fs::copy(&res.cfgp, &target_cfg_f)
+                .expect("Unable to copy lr(k) cfg");
+        }
+        println!("---------\n\n");
+    }
+
+    cfg_result.write_results(&results_txt.as_path())
         .expect("Unable to save the results from Cfg run in a file");
     println!("=> results stored in {}", results_txt.to_str().unwrap());
 }

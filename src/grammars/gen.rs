@@ -124,10 +124,8 @@ impl CfgGenResult {
 
 struct CfgGen {
     non_terms: Vec<String>,
-    // terms: Vec<String>,
     lex_syms: Vec<LexSymbol>,
     temp_dir: String,
-    // gen_result: CfgGenResult,
 }
 
 impl CfgGen {
@@ -144,10 +142,8 @@ impl CfgGen {
 
         Self {
             non_terms,
-            // terms,
             lex_syms,
             temp_dir,
-            // gen_result: CfgGenResult::new(vec![]),
         }
     }
 

@@ -11,7 +11,7 @@ const HYACC_CMD: &str = "/usr/local/bin/hyacc";
 const TIMEOUT_CMD: &str = "/usr/bin/timeout";
 const HYACC_TIMEOUT_SECS: usize = 5;
 
-fn run(cmd_path: &str, args: &[&str]) -> Result<(bool, String), io::Error> {
+fn run(cmd_path: &str, args: &[&str]) -> (Option<i32>, String, String) {
     let mut cmd = Command::new(cmd_path);
     cmd.args(args);
     let output = cmd.output()
@@ -21,45 +21,42 @@ fn run(cmd_path: &str, args: &[&str]) -> Result<(bool, String), io::Error> {
     let err = String::from_utf8(output.stderr)
         .expect("Unable to retrieve stderr from command");
 
-    let msg = format!("status:[{}]\nout: {}\nerror: {}\n",
-                      output.status.code().unwrap_or(-1),
-                      out,
-                      err);
-
-    // when we use timeout to stop hyacc, exit code is 124
-    if let Some(_) = output.status.code() {
-        return Ok((false, msg));
-    }
-
-    if out.contains("shift/reduce") ||
-       out.contains("reduce/reduce") ||
-       out.contains("nonterminals useless") ||
-       out.contains("rules useless") {
-        return Ok((false, msg));
-    }
-    if err.contains("shift/reduce") ||
-       err.contains("reduce/reduce")  ||
-       err.contains("nonterminals useless") ||
-       err.contains("rules useless") {
-        return Ok((false, msg));
-    }
-
-    Ok((true, msg))
+    (output.status.code(), out, err)
 }
 
 pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
     let outputp = inputp.replace(".y", ".bison.c");
     let args: &[&str] = &[inputp, "-o", outputp.as_str()];
-    Ok(run(BISON_CMD, args)?)
+    let (_, _, err) = run(BISON_CMD, args);
+    let msg = format!("err: {}\n", err);
+
+    if err.contains("shift/reduce") ||
+        err.contains("reduce/reduce")  ||
+        err.contains("nonterminals useless") ||
+        err.contains("rules useless") {
+        return Ok((false, msg));
+    }
+
+    Ok((true, msg))
 }
 
 pub(crate) fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
     let outputp = inputp.replace(".y", ".hyacc.c");
     let hyacc_run_secs = HYACC_TIMEOUT_SECS.to_string();
-    let args: &[&str] = &[hyacc_run_secs.as_str(), HYACC_CMD, inputp, "-K", "-o", outputp.as_str()];
-    Ok(run(TIMEOUT_CMD, args)?)
+    let args: &[&str] = &[ hyacc_run_secs.as_str(), HYACC_CMD, inputp, "-K", "-c", "|", "tail"];
+    let (_, out, _) = run(TIMEOUT_CMD, args);
+    let out_lines: Vec<&str> = out.split("\n").collect();
+    let msg = format!("err: {}\n", out);
+
+    if let Some(res) = out_lines.last() {
+        if (*res).contains("Max K in LR(k): ") {
+            return Ok((true, msg));
+        }
+    }
+
+    Ok((false, msg))
 }
 
 pub(crate) fn run_lrpar(cfg_path: &Path) -> (bool, String) {
@@ -129,7 +126,18 @@ mod tests {
         alt
     }
 
-    fn rule_S() -> (String, Vec<RuleAlt>) {
+    fn test_alt_3() -> RuleAlt {
+        let mut alt = RuleAlt::new(vec![]);
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("c".to_string())));
+        alt.append_sym(LexSymbol::Term(TermSymbol::new("d".to_string())));
+
+        alt
+    }
+
+    #[allow(non_snake_case)]
+    fn rule_S_lr1() -> (String, Vec<RuleAlt>) {
         let lhs = "S".to_string();
         let alt1 = test_alt_1(); // 'a' B 'c'
         let alt2 = test_alt_2(); // 'd' 'e'
@@ -138,6 +146,18 @@ mod tests {
         (lhs, rhs)
     }
 
+    #[allow(non_snake_case)]
+    fn rule_S_non_lr1() -> (String, Vec<RuleAlt>) {
+        let lhs = "S".to_string();
+        let alt1 = test_alt_1(); // 'a' B 'c'
+        let alt2 = test_alt_2(); // 'd' 'e'
+        let alt3 = test_alt_3(); // 'a' 'b' 'c' 'd'
+        let rhs = vec![alt1, alt2, alt3];
+
+        (lhs, rhs)
+    }
+
+    #[allow(non_snake_case)]
     fn rule_B() -> (String, Vec<RuleAlt>) {
         let lhs = "B".to_string();
         let mut alt = RuleAlt::new(vec![]);
@@ -147,9 +167,21 @@ mod tests {
         (lhs, rhs)
     }
 
+    #[allow(non_snake_case)]
     fn lr1_cfg() -> Cfg {
         let mut rules: Vec<CfgRule> = vec![];
-        let (lhs_S, rhs_S) = rule_S();
+        let (lhs_S, rhs_S) = rule_S_lr1();
+        rules.push(CfgRule::new(lhs_S, rhs_S));
+
+        let (lhs_B, rhs_B) = rule_B();
+        rules.push(CfgRule::new(lhs_B, rhs_B));
+
+        Cfg::new(rules)
+    }
+
+    fn non_lr1_cfg() -> Cfg {
+        let mut rules: Vec<CfgRule> = vec![];
+        let (lhs_S, rhs_S) = rule_S_non_lr1();
         rules.push(CfgRule::new(lhs_S, rhs_S));
 
         let (lhs_B, rhs_B) = rule_B();
@@ -159,14 +191,55 @@ mod tests {
     }
 
     #[test]
-    fn test_lrpar() {
+    fn test_lrpar_lr1() {
         let cfg = lr1_cfg();
-        let tempf = format!("/tmp/{}.lrpar.y", "test");
+        let tempf = format!("/tmp/{}.lrpar.y", "lr1");
         let lrparp = Path::new(tempf.as_str());
         let _ = fs::write(&lrparp, cfg.as_lrpar().as_str())
             .expect("Unable to write cfg in lrpar directory");
 
         let (lrpar_lr1, _) = run_lrpar(lrparp);
         assert!(lrpar_lr1);
+    }
+
+    #[test]
+    fn test_lrpar_non_lr1() {
+        let cfg = non_lr1_cfg();
+        let tempf = format!("/tmp/{}.lrpar.y", "non_lr1");
+        let lrparp = Path::new(tempf.as_str());
+        let _ = fs::write(&lrparp, cfg.as_lrpar().as_str())
+            .expect("Unable to write cfg in lrpar format");
+
+        let (is_lr1, msg) = run_lrpar(lrparp);
+        assert!(!is_lr1);
+        assert!(msg.contains("1 Shift/Reduce"));
+    }
+
+    #[test]
+    fn test_bison_lr1() {
+        let cfg = lr1_cfg();
+        let tempf = format!("/tmp/{}.bison.y", "lr1");
+        let bisonp = Path::new(tempf.as_str());
+        let _ = fs::write(&bisonp, cfg.as_yacc().as_str())
+            .expect("Unable to write cfg in bison/yacc format");
+
+        let (is_lr1, msg) = run_bison(bisonp)
+            .expect("Bison run failed!");
+        println!("msg: {}", msg);
+        assert!(is_lr1);
+    }
+
+    #[test]
+    fn test_bison_non_lr1() {
+        let cfg = non_lr1_cfg();
+        let tempf = format!("/tmp/{}.bison.y", "non_lr1");
+        let bisonp = Path::new(tempf.as_str());
+        let _ = fs::write(&bisonp, cfg.as_yacc().as_str())
+            .expect("Unable to write cfg in bison/yacc format");
+
+        let (is_lr1, msg) = run_bison(bisonp)
+            .expect("Bison run failed!");
+        println!("msg: {}", msg);
+        assert!(!is_lr1);
     }
 }

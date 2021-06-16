@@ -251,6 +251,7 @@ mod tests {
         alt
     }
 
+    #[allow(non_snake_case)]
     fn rule_S() -> (String, Vec<RuleAlt>) {
         let lhs = "S".to_string();
         let alt1 = test_alt_1(); // 'a' B 'c'
@@ -260,6 +261,7 @@ mod tests {
         (lhs, rhs)
     }
 
+    #[allow(non_snake_case)]
     fn rule_B() -> (String, Vec<RuleAlt>) {
         let lhs = "B".to_string();
         let mut alt = RuleAlt::new(vec![]);

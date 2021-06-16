@@ -1,6 +1,4 @@
-use std::fmt::{Debug, Formatter};
-use std::{fmt, fs, io};
-use std::ops::Index;
+use std::{fs, io};
 
 use chrono::prelude::Local;
 use prettytable::Table;
@@ -8,15 +6,11 @@ use prettytable::row;
 use rand::{Rng, thread_rng};
 use rand::prelude::SliceRandom;
 use rayon::prelude::*;
-use tempfile;
 
 use crate::grammars::{Cfg, CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
 use crate::lr1_check;
-use tempfile::TempDir;
 use chrono::Timelike;
-use std::io::Error;
 use std::path::Path;
-use std::fs::File;
 
 // fn cfg() {
 //     let cfg_s = "\
@@ -59,7 +53,6 @@ const MIN_ALTS: usize = 1;
 const MAX_ALTS: usize = 3;
 const MIN_SYMS_IN_ALT: usize = 0;
 const MAX_SYMS_IN_ALT: usize = 5;
-const MAX_ITERATIONS: usize = 5;
 
 pub(crate) struct CfgLr1Result {
     pub(crate) cfgp: String,
@@ -131,10 +124,10 @@ impl CfgGenResult {
 
 struct CfgGen {
     non_terms: Vec<String>,
-    terms: Vec<String>,
+    // terms: Vec<String>,
     lex_syms: Vec<LexSymbol>,
     temp_dir: String,
-    gen_result: CfgGenResult,
+    // gen_result: CfgGenResult,
 }
 
 impl CfgGen {
@@ -151,10 +144,10 @@ impl CfgGen {
 
         Self {
             non_terms,
-            terms,
+            // terms,
             lex_syms,
             temp_dir,
-            gen_result: CfgGenResult::new(vec![]),
+            // gen_result: CfgGenResult::new(vec![]),
         }
     }
 
@@ -167,7 +160,7 @@ impl CfgGen {
     //     // println!("nt_reach: {:?}", nt_reach);
     // }
 
-    fn get_lex_sym(&self, lex_syms: &Vec<&LexSymbol>, mut root_reach: &mut Vec<String>, nt: &str) -> LexSymbol {
+    fn get_lex_sym(&self, lex_syms: &Vec<&LexSymbol>, nt: &str) -> LexSymbol {
         match lex_syms.choose(&mut thread_rng()) {
             Some(sym) => {
                 let sym_cl = (*sym).clone();
@@ -193,17 +186,17 @@ impl CfgGen {
 
     /// Generate a Rule alternative.
     /// Prevent alternatives of the form `X: X | Y` as they are ambiguous
-    fn gen_alt(&self, nt: &str, no_syms: usize, lex_syms: &Vec<&LexSymbol>, mut root_reach: &mut Vec<String>) -> RuleAlt {
+    fn gen_alt(&self, nt: &str, no_syms: usize, lex_syms: &Vec<&LexSymbol>) -> RuleAlt {
         match no_syms {
             0 => {
                 return RuleAlt::new(vec![]);
             }
             1 => {
-                let sym = self.get_lex_sym(&lex_syms, &mut root_reach, &nt);
+                let sym = self.get_lex_sym(&lex_syms, &nt);
                 return RuleAlt::new(vec![sym]);
             }
             _ => {
-                let mut syms: Vec<LexSymbol> = lex_syms
+                let syms: Vec<LexSymbol> = lex_syms
                     .choose_multiple(&mut thread_rng(), no_syms)
                     .map(|x| (*x).clone())
                     .collect();
@@ -265,7 +258,7 @@ impl CfgGen {
                                     RuleAlt::new(alt_syms)
                                 }
                                 _ => {
-                                    let alt = self.gen_alt(nt, no_syms, &lex_syms, &mut root_reach);
+                                    let alt = self.gen_alt(nt, no_syms, &lex_syms);
                                     // iterate through the symbols and build up non-terms reachability
                                     self.update_reachable(&alt, &mut root_reach);
                                     alt
@@ -273,7 +266,7 @@ impl CfgGen {
                             }
                         }
                         _ => {
-                            let alt = self.gen_alt(nt, no_syms, &lex_syms, &mut root_reach);
+                            let alt = self.gen_alt(nt, no_syms, &lex_syms);
                             // iterate through the symbols and build up non-terms reachability
                             self.update_reachable(&alt, &mut root_reach);
                             alt
@@ -290,14 +283,14 @@ impl CfgGen {
                     let alt = match nt {
                         "root" => {
                             let no_syms = (&mut thread_rng()).gen_range(1, MAX_SYMS_IN_ALT + 1);
-                            let alt = self.gen_alt(nt, no_syms, &lex_syms, &mut root_reach);
+                            let alt = self.gen_alt(nt, no_syms, &lex_syms);
                             // iterate through the symbols and build up non-terms reachability
                             self.update_reachable(&alt, &mut root_reach);
                             alt
                         }
                         _ => {
                             let no_syms = (&mut thread_rng()).gen_range(MIN_SYMS_IN_ALT, MAX_SYMS_IN_ALT + 1);
-                            let alt = self.gen_alt(nt, no_syms, &lex_syms, &mut root_reach);
+                            let alt = self.gen_alt(nt, no_syms, &lex_syms);
                             // iterate through the symbols and build up non-terms reachability
                             self.update_reachable(&alt, &mut root_reach);
                             alt
@@ -315,7 +308,6 @@ impl CfgGen {
     }
 
     fn generate(&self, cfg_no: usize) -> Option<CfgLr1Result> {
-        // eprint!(".");
         // first, generate root rule
         let mut rules = Vec::<CfgRule>::new();
         let mut root_reach = Vec::<String>::new();
@@ -370,7 +362,7 @@ impl CfgGen {
 /// Generate a CFG of size `cfg_size`
 /// By `size`, we mean the number of rules
 pub(crate) fn start(cfg_size: usize, n: usize) {
-    let mut non_terms: Vec<String> = ASCII_UPPER
+    let non_terms: Vec<String> = ASCII_UPPER
         .choose_multiple(&mut thread_rng(), cfg_size - 1)
         .map(|c| c.to_string())
         .collect();

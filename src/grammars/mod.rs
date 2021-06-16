@@ -21,7 +21,7 @@ impl fmt::Display for NonTermSymbol {
 }
 
 impl NonTermSymbol {
-    fn new(tok: String) -> Self {
+    pub(crate) fn new(tok: String) -> Self {
         Self {
             tok,
             tok_type: SymType::NonTerminal,
@@ -52,7 +52,7 @@ impl fmt::Display for TermSymbol {
 }
 
 impl TermSymbol {
-    fn new(tok: String) -> Self {
+    pub(crate) fn new(tok: String) -> Self {
         Self {
             tok,
             tok_type: SymType::Terminal,
@@ -78,7 +78,6 @@ pub(crate) enum LexSymbol {
 
 impl fmt::Display for LexSymbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = String::new();
         match self {
             LexSymbol::NonTerm(nt) => {
                 nt.fmt(f)
@@ -151,7 +150,7 @@ impl fmt::Display for CfgRule {
                 rhs_s = format!("{} | {}", rhs_s, alt.to_string())
             }
         }
-        let mut s = format!("{}: {}", self.lhs, rhs_s);
+        let s = format!("{}: {}", self.lhs, rhs_s);
         write!(f, "{}", s)
     }
 }
@@ -200,14 +199,6 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn add_rule(&mut self, rule: CfgRule) {
-        self.rules.push(rule);
-    }
-
-    pub(crate) fn rules(&self) -> &Vec<CfgRule> {
-        &self.rules
-    }
-
     pub(crate) fn start_rule(&self) -> Option<&CfgRule> {
         self.rules.first()
     }
@@ -220,9 +211,6 @@ impl Cfg {
     }
 
     pub(crate) fn as_yacc(&self) -> String {
-        let s_rule = self.start_rule()
-            .expect("Cfg is missing a start rule!");
-
         format!("%define lr.type canonical-lr\n\n{}", self.as_hyacc())
     }
 

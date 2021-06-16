@@ -247,7 +247,7 @@ mod tests {
     use super::RuleAlt;
 
     fn test_alt_1() -> RuleAlt {
-        let mut alt = RuleAlt::new();
+        let mut alt = RuleAlt::new(vec![]);
         alt.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
         alt.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
         alt.append_sym(LexSymbol::Term(TermSymbol::new("c".to_string())));
@@ -256,7 +256,7 @@ mod tests {
     }
 
     fn test_alt_2() -> RuleAlt {
-        let mut alt = RuleAlt::new();
+        let mut alt = RuleAlt::new(vec![]);
         alt.append_sym(LexSymbol::Term(TermSymbol::new("d".to_string())));
         alt.append_sym(LexSymbol::Term(TermSymbol::new("e".to_string())));
 
@@ -274,7 +274,7 @@ mod tests {
 
     fn rule_B() -> (String, Vec<RuleAlt>) {
         let lhs = "B".to_string();
-        let mut alt = RuleAlt::new();
+        let mut alt = RuleAlt::new(vec![]);
         alt.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
         let rhs = vec![alt];
 
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn test_cfg() {
         let cfg = simple_cfg();
-        let cfg_expected = format!("S: 'a' B 'c' | 'd' 'e'\n;B: 'b'\n;");
+        let cfg_expected = format!("S: 'a' B 'c' | 'd' 'e'\n;\nB: 'b'\n;\n");
 
         assert_eq!(cfg.to_string(), cfg_expected);
     }
@@ -316,10 +316,10 @@ mod tests {
     #[test]
     fn test_cfg_yacc() {
         let cfg = simple_cfg();
-        let cfg_header = "%start S\n\n%%\n\n".to_string();
+        let cfg_header = "%define lr.type canonical-lr\n\n%start S\n\n%%\n\n".to_string();
         let cfg_footer = "\n\n%%".to_string();
         let cfg_expected = format!(
-            "{}S: 'a' B 'c' | 'd' 'e'\n;B: 'b'\n;{}",
+            "{}S: 'a' B 'c' | 'd' 'e'\n;\nB: 'b'\n;\n{}",
             cfg_header,
             cfg_footer
         );
@@ -331,9 +331,9 @@ mod tests {
     fn test_cfg_lrpar() {
         let cfg = simple_cfg();
         let cfg_header = "%start S\n\n%%\n\n".to_string();
-        let cfg_footer = "\n\n%%".to_string();
+        let cfg_footer = "\n\n\n%%".to_string();
         let cfg_expected = format!(
-            "{}S ->: 'a' B 'c' {{ }} | 'd' 'e' {{ }}\n;B ->: 'b' {{ }}\n;{}",
+            "{}S ->: 'a' B 'c' {{ }} | 'd' 'e' {{ }}\n;\nB ->: 'b' {{ }}\n;{}",
             cfg_header,
             cfg_footer
         );

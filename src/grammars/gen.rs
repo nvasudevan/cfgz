@@ -135,7 +135,7 @@ impl CfgGen {
         }
     }
 
-    fn get_lex_sym(&self, lex_syms: &Vec<&LexSymbol>, nt: &str) -> LexSymbol {
+    fn get_lex_sym(&self, lex_syms: &[&LexSymbol], nt: &str) -> LexSymbol {
         match lex_syms.choose(&mut thread_rng()) {
             Some(sym) => {
                 (*sym).clone()
@@ -159,7 +159,7 @@ impl CfgGen {
 
     /// Generate a Rule alternative.
     /// Prevent alternatives of the form `X: X | Y` as they are ambiguous
-    fn gen_alt(&self, nt: &str, no_syms: usize, lex_syms: &Vec<&LexSymbol>) -> RuleAlt {
+    fn gen_alt(&self, nt: &str, no_syms: usize, lex_syms: &[&LexSymbol]) -> RuleAlt {
         match no_syms {
             0 => {
                 RuleAlt::new(vec![])
@@ -178,7 +178,7 @@ impl CfgGen {
         }
     }
 
-    fn unreachable_non_terms(&self, root_reach: &Vec<String>) -> Vec<String> {
+    fn unreachable_non_terms(&self, root_reach: &[String]) -> Vec<String> {
         let mut unreach = Vec::<String>::new();
         for nt in &self.non_terms {
             if !root_reach.contains(nt) {
@@ -228,7 +228,7 @@ impl CfgGen {
                                     RuleAlt::new(alt_syms)
                                 }
                                 _ => {
-                                    let alt = self.gen_alt(nt, no_syms, &lex_syms);
+                                    let alt = self.gen_alt(nt, no_syms, lex_syms.as_slice());
                                     // iterate through the symbols and build up non-terms reachability
                                     self.update_reachable(&alt, &mut root_reach);
                                     alt
@@ -296,7 +296,7 @@ impl CfgGen {
                 break;
             }
         }
-        if !self.unreachable_non_terms(&root_reach).is_empty() {
+        if !self.unreachable_non_terms(root_reach.as_slice()).is_empty() {
             return None;
         }
 

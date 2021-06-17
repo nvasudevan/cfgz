@@ -32,7 +32,7 @@ pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let msg = format!("err: {}\n", err);
 
     if err.contains("shift/reduce") ||
-        err.contains("reduce/reduce")  ||
+        err.contains("reduce/reduce") ||
         err.contains("nonterminals useless") ||
         err.contains("rules useless") {
         return Ok((false, msg));
@@ -43,19 +43,45 @@ pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
 
 pub(crate) fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
-    let outputp = inputp.replace(".y", ".hyacc.c");
+    // let outputp = inputp.replace(".y", ".hyacc.c");
     let hyacc_run_secs = HYACC_TIMEOUT_SECS.to_string();
-    let args: &[&str] = &[ hyacc_run_secs.as_str(), HYACC_CMD, inputp, "-K", "-c", "|", "tail"];
-    let (_, out, _) = run(TIMEOUT_CMD, args);
+    let args: &[&str] = &[hyacc_run_secs.as_str(), HYACC_CMD, inputp, "-K", "-c"];
+    let (s_code, out, err) = run(TIMEOUT_CMD, args);
     let out_lines: Vec<&str> = out.split("\n").collect();
-    let msg = format!("err: {}\n", out);
-
-    if let Some(res) = out_lines.last() {
-        if (*res).contains("Max K in LR(k): ") {
-            return Ok((true, msg));
+    let mut k_lines: Vec<&str> = out_lines
+        .iter()
+        .filter(|&&l| l.contains("while loop: k ="))
+        .cloned()
+        .collect();
+    if let Some(s) = out_lines.first() {
+        if (*s).contains("laneHeadList is NULL") {
+            let mut msg_lines: Vec<&str> = vec![(*s)];
+            msg_lines.append(&mut k_lines);
+            return Ok((false, msg_lines.join("\n")));
         }
     }
 
+    for l in out_lines.iter().rev() {
+        if (*l).contains("Max K in LR(k): ") {
+            let mut msg_lines: Vec<&str> = vec![];
+            msg_lines.append(&mut k_lines);
+            msg_lines.push(*l);
+            return Ok((true, msg_lines.join("\n")));
+        }
+    }
+    // if let Some(s) = out_lines.get(out_lines.len() - 2) {
+    //     if (*s).contains("Max K in LR(k): ") {
+    //         let mut msg_lines: Vec<&str> = vec![];
+    //         msg_lines.append(&mut k_lines);
+    //         msg_lines.push(*s);
+    //         return Ok((true, msg_lines.join("\n")));
+    //     }
+    // }
+
+    let msg = format!("exit code: {}\n{}\nerr: {}",
+                      s_code.unwrap_or(-1),
+                      k_lines.join("\n"),
+                      err);
     Ok((false, msg))
 }
 
@@ -101,7 +127,7 @@ pub(crate) fn run_lr1_tools(cfg: Cfg, cfg_no: usize, temp_dir: &str) -> CfgLr1Re
         .expect(&format!("{} - Hyacc run failed!", hyaccp.to_str().unwrap()));
 
     CfgLr1Result::new(hyaccp.to_str().unwrap().to_string(), lrpar_lr1, lrpar_msg,
-        bison_lr1, bison_msg, hyacc_lr1, hyacc_msg)
+                      bison_lr1, bison_msg, hyacc_lr1, hyacc_msg)
 }
 
 #[cfg(test)]
@@ -179,6 +205,43 @@ mod tests {
         Cfg::new(rules)
     }
 
+    /// LR(2) grammar: S: F B 'x' | G B 'y'; F: 'a'; G: 'a'; B: 'b' 'b'
+    fn lr2_cfg() -> Cfg {
+        let mut rules: Vec<CfgRule> = vec![];
+        // rule S
+        let s_lhs = "S".to_string();
+        let mut s_alt1 =  RuleAlt::new(vec![]);
+        s_alt1.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("F".to_string())));
+        s_alt1.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
+        s_alt1.append_sym(LexSymbol::Term(TermSymbol::new("x".to_string())));
+
+        let mut s_alt2 =  RuleAlt::new(vec![]);
+        s_alt2.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("G".to_string())));
+        s_alt2.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
+        s_alt2.append_sym(LexSymbol::Term(TermSymbol::new("y".to_string())));
+
+        let s_rhs = vec![s_alt1, s_alt2];
+        rules.push(CfgRule::new(s_lhs, s_rhs));
+
+        // rule F
+        let mut f_alt1 =  RuleAlt::new(vec![]);
+        f_alt1.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        rules.push(CfgRule::new("F".to_string(), vec![f_alt1]));
+
+        // rule G
+        let mut g_alt1 =  RuleAlt::new(vec![]);
+        g_alt1.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        rules.push(CfgRule::new("G".to_string(), vec![g_alt1]));
+
+        // rule B
+        let mut b_alt1 =  RuleAlt::new(vec![]);
+        b_alt1.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        b_alt1.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        rules.push(CfgRule::new("B".to_string(), vec![b_alt1]));
+
+        Cfg::new(rules)
+    }
+
     fn non_lr1_cfg() -> Cfg {
         let mut rules: Vec<CfgRule> = vec![];
         let (lhs_S, rhs_S) = rule_S_non_lr1();
@@ -219,11 +282,11 @@ mod tests {
     fn test_bison_lr1() {
         let cfg = lr1_cfg();
         let tempf = format!("/tmp/{}.bison.y", "lr1");
-        let bisonp = Path::new(tempf.as_str());
-        let _ = fs::write(&bisonp, cfg.as_yacc().as_str())
+        let cfgp = Path::new(tempf.as_str());
+        let _ = fs::write(&cfgp, cfg.as_yacc().as_str())
             .expect("Unable to write cfg in bison/yacc format");
 
-        let (is_lr1, msg) = run_bison(bisonp)
+        let (is_lr1, msg) = run_bison(cfgp)
             .expect("Bison run failed!");
         println!("msg: {}", msg);
         assert!(is_lr1);
@@ -233,13 +296,55 @@ mod tests {
     fn test_bison_non_lr1() {
         let cfg = non_lr1_cfg();
         let tempf = format!("/tmp/{}.bison.y", "non_lr1");
-        let bisonp = Path::new(tempf.as_str());
-        let _ = fs::write(&bisonp, cfg.as_yacc().as_str())
+        let cfgp = Path::new(tempf.as_str());
+        let _ = fs::write(&cfgp, cfg.as_yacc().as_str())
             .expect("Unable to write cfg in bison/yacc format");
 
-        let (is_lr1, msg) = run_bison(bisonp)
+        let (is_lr1, msg) = run_bison(cfgp)
             .expect("Bison run failed!");
+        println!("{}", msg);
+        assert!(!is_lr1);
+    }
+
+    #[test]
+    fn test_hyacc_lr1() {
+        let cfg = lr1_cfg();
+        let tempf = format!("/tmp/{}.hyacc.y", "lr1");
+        let cfgp = Path::new(tempf.as_str());
+        let _ = fs::write(&cfgp, cfg.as_hyacc().as_str())
+            .expect("Unable to write cfg in hyacc format");
+
+        let (is_lr1, msg) = run_hyacc(cfgp)
+            .expect("Hyacc run failed!");
         println!("msg: {}", msg);
+        assert!(is_lr1);
+    }
+
+    #[test]
+    fn test_hyacc_lr2() {
+        let cfg = lr2_cfg();
+        let tempf = format!("/tmp/{}.hyacc.y", "lr2");
+        let cfgp = Path::new(tempf.as_str());
+        let _ = fs::write(&cfgp, cfg.as_hyacc().as_str())
+            .expect("Unable to write cfg in hyacc format");
+
+        let (is_lr2, msg) = run_hyacc(cfgp)
+            .expect("Hyacc run failed!");
+        println!("msg: {}", msg);
+        assert!(is_lr2);
+    }
+
+    #[test]
+    fn test_hyacc_non_lr1() {
+        let cfg = non_lr1_cfg();
+        let tempf = format!("/tmp/{}.hyacc.y", "non_lr1");
+        let cfgp = Path::new(tempf.as_str());
+        let _ = fs::write(&cfgp, cfg.as_hyacc().as_str())
+            .expect("Unable to write cfg in hyacc format");
+
+        let (is_lr1, msg) = run_hyacc(cfgp)
+            .expect("Hyacc run failed!");
+        println!("{}", msg);
         assert!(!is_lr1);
     }
 }

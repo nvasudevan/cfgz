@@ -97,12 +97,19 @@ impl CfgGenResult {
         }
     }
 
-    pub(crate) fn lrk_grammars(&self) -> Vec<&CfgLr1Result> {
+    pub(crate) fn lr1_grammars(&self) -> Vec<&CfgLr1Result> {
         self.lr1_checks
             .iter()
             .filter(|res|
-                res.lrpar_lr1 && res.bison_lr1 && res.hyacc_lr1
+                res.lrpar_lr1 && res.bison_lr1
             )
+            .collect()
+    }
+
+    pub(crate) fn lrk_grammars(&self) -> Vec<&CfgLr1Result> {
+        self.lr1_checks
+            .iter()
+            .filter(|res| res.hyacc_lr1)
             .collect()
     }
 
@@ -304,7 +311,6 @@ impl CfgGen {
     }
 
     fn generate(&self, cfg_no: usize) -> Option<CfgLr1Result> {
-        // first, generate root rule
         let mut rules = Vec::<CfgRule>::new();
         let mut root_reach = Vec::<String>::new();
         {
@@ -318,7 +324,6 @@ impl CfgGen {
         loop {
             if let Some(next_nt) = root_reach.get(i) {
                 let rule = self.gen_rule(&(next_nt.to_string()), &mut root_reach);
-                // println!("{}, reach: {:?} (unreach: {:?})", rule, root_reach, self.unreachable_non_terms(&root_reach));
                 rules.push(rule);
                 i += 1;
             }
@@ -355,9 +360,50 @@ impl CfgGen {
     }
 }
 
+fn parse_lr1_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
+    let lr1_cfgs = cfg_result.lr1_grammars();
+    println!("\n=> generated {}/{} lr(1) grammars", lr1_cfgs.len(), cfg_result.lr1_checks.len());
+
+    if lr1_cfgs.len() > 0 {
+        let target_cfg_dir = format!("./grammars/lr1/{}", cfg_dir);
+        fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
+        println!("=> copying lr(1) grammars to target grammar dir: {}", target_cfg_dir);
+        println!("--- lr(1) grammars ---");
+        for res in lr1_cfgs {
+            let cfg_f = res.cfgp.split("/").last().unwrap();
+            let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
+            println!("copying {} => {}", &res.cfgp, &target_cfg_f);
+            std::fs::copy(&res.cfgp, &target_cfg_f)
+                .expect("Unable to copy lr(1) cfg");
+        }
+        println!("---------\n\n");
+    }
+}
+
+fn parse_lrk_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
+    let lrk_cfgs = cfg_result.lrk_grammars();
+    println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
+
+    if lrk_cfgs.len() > 0 {
+        let target_cfg_dir = format!("./grammars/lr_k/{}", cfg_dir);
+        fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
+        println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
+        println!("--- lr(k) grammars ---");
+        for res in lrk_cfgs {
+            let cfg_f = res.cfgp.split("/").last().unwrap();
+            let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
+            println!("copying {} => {}", &res.cfgp, &target_cfg_f);
+            std::fs::copy(&res.cfgp, &target_cfg_f)
+                .expect("Unable to copy lr(k) cfg");
+        }
+        println!("---------\n\n");
+    }
+}
+
 /// Generate a CFG of size `cfg_size`
 /// By `size`, we mean the number of rules
 pub(crate) fn start(cfg_size: usize, n: usize) {
+    println!("=> generating grammars of size {}", cfg_size);
     let non_terms: Vec<String> = ASCII_UPPER
         .choose_multiple(&mut thread_rng(), cfg_size - 1)
         .map(|c| c.to_string())
@@ -376,22 +422,14 @@ pub(crate) fn start(cfg_size: usize, n: usize) {
     let cfg_gen = CfgGen::new(non_terms, terms, temp_dir.to_string());
     let cfg_result = cfg_gen.gen_par(n);
     let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
-    let lrk_cfgs = cfg_result.lrk_grammars();
-    println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
-    if lrk_cfgs.len() > 0 {
-        let target_cfg_dir = format!("./grammars/lr_k/{}", cfg_dir);
-        fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
-        println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
-        println!("--- lr(k) grammars ---");
-        for res in lrk_cfgs {
-            let cfg_f = res.cfgp.split("/").last().unwrap();
-            let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
-            println!("copying {} => {}", &res.cfgp, &target_cfg_f);
-            std::fs::copy(&res.cfgp, &target_cfg_f)
-                .expect("Unable to copy lr(k) cfg");
-        }
-        println!("---------\n\n");
-    }
+
+    // LR(1) grammars
+    parse_lr1_results(&cfg_result, &cfg_dir);
+
+    // LR(k) grammars
+    parse_lrk_results(&cfg_result, &cfg_dir);
+    // let lrk_cfgs = cfg_result.lrk_grammars();
+    // println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
 
     cfg_result.write_results(&results_txt.as_path())
         .expect("Unable to save the results from Cfg run in a file");

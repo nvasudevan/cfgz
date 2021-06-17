@@ -125,10 +125,6 @@ impl RuleAlt {
         }
     }
 
-    pub(crate) fn append_sym(&mut self, sym: LexSymbol) {
-        self.lex_symbols.push(sym);
-    }
-
     pub(crate) fn as_lrpar(&self) -> String {
         format!("{} {{ }}", self)
     }

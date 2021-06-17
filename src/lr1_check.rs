@@ -12,24 +12,24 @@ const HYACC_CMD: &str = "/usr/local/bin/hyacc";
 const TIMEOUT_CMD: &str = "/usr/bin/timeout";
 const HYACC_TIMEOUT_SECS: usize = 5;
 
-fn run(cmd_path: &str, args: &[&str]) -> (Option<i32>, String, String) {
+fn run(cmd_path: &str, args: &[&str]) -> io::Result<(Option<i32>, String, String)> {
     let mut cmd = Command::new(cmd_path);
     cmd.args(args);
-    let output = cmd.output()
-        .expect(&format!("Failed to execute cmd: {}", cmd_path));
+    let output = cmd.output()?;
+        // .expect(&format!("Failed to execute cmd: {}", cmd_path));
     let out = String::from_utf8(output.stdout)
-        .expect("Unable to retrieve stdout from command");
+        .unwrap_or_else(|_| "Unable to retrieve stdout from command".to_string());
     let err = String::from_utf8(output.stderr)
-        .expect("Unable to retrieve stderr from command");
+        .unwrap_or_else(|_| "Unable to retrieve stderr from command".to_string());
 
-    (output.status.code(), out, err)
+    Ok((output.status.code(), out, err))
 }
 
 pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
     let outputp = inputp.replace(".y", ".bison.c");
     let args: &[&str] = &[inputp, "-o", outputp.as_str()];
-    let (_, _, err) = run(BISON_CMD, args);
+    let (_, _, err) = run(BISON_CMD, args)?;
     let msg = format!("err: {}\n", err);
 
     if err.contains("shift/reduce") ||
@@ -47,8 +47,8 @@ pub(crate) fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     // let outputp = inputp.replace(".y", ".hyacc.c");
     let hyacc_run_secs = HYACC_TIMEOUT_SECS.to_string();
     let args: &[&str] = &[hyacc_run_secs.as_str(), HYACC_CMD, inputp, "-K", "-c"];
-    let (s_code, out, err) = run(TIMEOUT_CMD, args);
-    let out_lines: Vec<&str> = out.split("\n").collect();
+    let (s_code, out, err) = run(TIMEOUT_CMD, args)?;
+    let out_lines: Vec<&str> = out.split('\n').collect();
     let mut k_lines: Vec<&str> = out_lines
         .iter()
         .filter(|&&l| l.contains("while loop: k ="))
@@ -70,14 +70,6 @@ pub(crate) fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
             return Ok((true, msg_lines.join("\n")));
         }
     }
-    // if let Some(s) = out_lines.get(out_lines.len() - 2) {
-    //     if (*s).contains("Max K in LR(k): ") {
-    //         let mut msg_lines: Vec<&str> = vec![];
-    //         msg_lines.append(&mut k_lines);
-    //         msg_lines.push(*s);
-    //         return Ok((true, msg_lines.join("\n")));
-    //     }
-    // }
 
     let msg = format!("exit code: {}\n{}\nerr: {}",
                       s_code.unwrap_or(-1),
@@ -123,9 +115,9 @@ pub(crate) fn run_lr1_tools(cfg: Cfg, cfg_no: usize, temp_dir: &str) -> CfgLr1Re
 
     let (lrpar_lr1, lrpar_msg) = run_lrpar(lrparp);
     let (bison_lr1, bison_msg) = run_bison(bisonp)
-        .expect(&format!("{} - Bison run failed!", bisonp.to_str().unwrap()));
+        .unwrap_or_else(|_| panic!("{} - Bison run failed!", bisonp.to_str().unwrap()));
     let (hyacc_lr1, hyacc_msg) = run_hyacc(hyaccp)
-        .expect(&format!("{} - Hyacc run failed!", hyaccp.to_str().unwrap()));
+        .unwrap_or_else(|_| panic!("{} - Hyacc run failed!", hyaccp.to_str().unwrap()));
 
     CfgLr1Result::new(hyaccp.to_str().unwrap().to_string(), lrpar_lr1, lrpar_msg,
                       bison_lr1, bison_msg, hyacc_lr1, hyacc_msg)

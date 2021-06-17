@@ -138,8 +138,7 @@ impl CfgGen {
     fn get_lex_sym(&self, lex_syms: &Vec<&LexSymbol>, nt: &str) -> LexSymbol {
         match lex_syms.choose(&mut thread_rng()) {
             Some(sym) => {
-                let sym_cl = (*sym).clone();
-                sym_cl
+                (*sym).clone()
             }
             _ => {
                 // if there no symbols left in nt_reach, pick from lex_syms
@@ -153,8 +152,7 @@ impl CfgGen {
                 }
                 let sym = lex_syms.choose(&mut thread_rng())
                     .expect("Unable to pick a lex symbol from lex_syms");
-                let sym_cl = (*sym).clone();
-                sym_cl
+                (*sym).clone()
             }
         }
     }
@@ -164,18 +162,18 @@ impl CfgGen {
     fn gen_alt(&self, nt: &str, no_syms: usize, lex_syms: &Vec<&LexSymbol>) -> RuleAlt {
         match no_syms {
             0 => {
-                return RuleAlt::new(vec![]);
+                RuleAlt::new(vec![])
             }
             1 => {
                 let sym = self.get_lex_sym(&lex_syms, &nt);
-                return RuleAlt::new(vec![sym]);
+                RuleAlt::new(vec![sym])
             }
             _ => {
                 let syms: Vec<LexSymbol> = lex_syms
                     .choose_multiple(&mut thread_rng(), no_syms)
                     .map(|x| (*x).clone())
                     .collect();
-                return RuleAlt::new(syms);
+                RuleAlt::new(syms)
             }
         }
     }
@@ -192,13 +190,10 @@ impl CfgGen {
 
     fn update_reachable(&self, alt: &RuleAlt, root_reach: &mut Vec<String>) {
         for sym in &alt.lex_symbols {
-            match sym.clone() {
-                LexSymbol::NonTerm(sym_nt) => {
-                    if !root_reach.contains(&sym_nt.tok) {
-                        root_reach.push(sym_nt.tok.to_string());
-                    }
+            if let LexSymbol::NonTerm(sym_nt) = sym.clone() {
+                if !root_reach.contains(&sym_nt.tok) {
+                    root_reach.push(sym_nt.tok.to_string());
                 }
-                _ => {}
             }
         }
     }
@@ -301,7 +296,7 @@ impl CfgGen {
                 break;
             }
         }
-        if self.unreachable_non_terms(&root_reach).len() > 0 {
+        if !self.unreachable_non_terms(&root_reach).is_empty() {
             return None;
         }
 
@@ -334,13 +329,13 @@ fn parse_lr1_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
     let lr1_cfgs = cfg_result.lr1_grammars();
     println!("\n=> generated {}/{} lr(1) grammars", lr1_cfgs.len(), cfg_result.lr1_checks.len());
 
-    if lr1_cfgs.len() > 0 {
+    if !lr1_cfgs.is_empty() {
         let target_cfg_dir = format!("./grammars/lr1/{}", cfg_dir);
         fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
         println!("=> copying lr(1) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(1) grammars ---");
         for res in lr1_cfgs {
-            let cfg_f = res.cfgp.split("/").last().unwrap();
+            let cfg_f = res.cfgp.split('/').last().unwrap();
             let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
             println!("copying {} => {}", &res.cfgp, &target_cfg_f);
             std::fs::copy(&res.cfgp, &target_cfg_f)
@@ -354,13 +349,13 @@ fn parse_lrk_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
     let lrk_cfgs = cfg_result.lrk_grammars();
     println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
 
-    if lrk_cfgs.len() > 0 {
+    if !lrk_cfgs.is_empty() {
         let target_cfg_dir = format!("./grammars/lr_k/{}", cfg_dir);
         fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
         println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(k) grammars ---");
         for res in lrk_cfgs {
-            let cfg_f = res.cfgp.split("/").last().unwrap();
+            let cfg_f = res.cfgp.split('/').last().unwrap();
             let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
             println!("copying {} => {}", &res.cfgp, &target_cfg_f);
             std::fs::copy(&res.cfgp, &target_cfg_f)

@@ -1,8 +1,9 @@
-use std::{io, fs, path::Path};
+use std::{fs, io, path::Path};
 use std::process::Command;
 
 use cfgrammar::yacc::YaccKind;
 use lrpar::CTParserBuilder;
+
 use crate::grammars::Cfg;
 use crate::grammars::gen::CfgLr1Result;
 
@@ -132,8 +133,9 @@ pub(crate) fn run_lr1_tools(cfg: Cfg, cfg_no: usize, temp_dir: &str) -> CfgLr1Re
 
 #[cfg(test)]
 mod tests {
+    use crate::grammars::{CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
+
     use super::*;
-    use crate::grammars::{RuleAlt, LexSymbol, TermSymbol, NonTermSymbol, CfgRule};
 
     fn test_alt_1() -> RuleAlt {
         let mut alt = RuleAlt::new(vec![]);
@@ -210,12 +212,12 @@ mod tests {
         let mut rules: Vec<CfgRule> = vec![];
         // rule S
         let s_lhs = "S".to_string();
-        let mut s_alt1 =  RuleAlt::new(vec![]);
+        let mut s_alt1 = RuleAlt::new(vec![]);
         s_alt1.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("F".to_string())));
         s_alt1.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
         s_alt1.append_sym(LexSymbol::Term(TermSymbol::new("x".to_string())));
 
-        let mut s_alt2 =  RuleAlt::new(vec![]);
+        let mut s_alt2 = RuleAlt::new(vec![]);
         s_alt2.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("G".to_string())));
         s_alt2.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
         s_alt2.append_sym(LexSymbol::Term(TermSymbol::new("y".to_string())));
@@ -224,17 +226,17 @@ mod tests {
         rules.push(CfgRule::new(s_lhs, s_rhs));
 
         // rule F
-        let mut f_alt1 =  RuleAlt::new(vec![]);
+        let mut f_alt1 = RuleAlt::new(vec![]);
         f_alt1.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
         rules.push(CfgRule::new("F".to_string(), vec![f_alt1]));
 
         // rule G
-        let mut g_alt1 =  RuleAlt::new(vec![]);
+        let mut g_alt1 = RuleAlt::new(vec![]);
         g_alt1.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
         rules.push(CfgRule::new("G".to_string(), vec![g_alt1]));
 
         // rule B
-        let mut b_alt1 =  RuleAlt::new(vec![]);
+        let mut b_alt1 = RuleAlt::new(vec![]);
         b_alt1.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
         b_alt1.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
         rules.push(CfgRule::new("B".to_string(), vec![b_alt1]));

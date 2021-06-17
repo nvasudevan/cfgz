@@ -1,35 +1,16 @@
 use std::{fs, io};
+use std::path::Path;
 
 use chrono::prelude::Local;
-use prettytable::Table;
+use chrono::Timelike;
 use prettytable::row;
+use prettytable::Table;
 use rand::{Rng, thread_rng};
 use rand::prelude::SliceRandom;
 use rayon::prelude::*;
 
 use crate::grammars::{Cfg, CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
 use crate::lr1_check;
-use chrono::Timelike;
-use std::path::Path;
-
-// fn cfg() {
-//     let cfg_s = "\
-//     %start S\
-//     %%
-//     S: A | B;
-//     A: 'a' | 'b';
-//     B: 'b' | 'c';
-//     ";
-//     let cfg = cfgrammar::yacc::YaccGrammar::new(
-//         YaccKind::Original(YaccOriginalActionKind::GenericParseTree),
-//         cfg_s)
-//         .expect("Can't create a Yacc grammar");
-//     println!("=> cfg rules");
-//     println!("no of tokens: {}", cfg.tokens_len().0);
-//     for pid in cfg.iter_pidxs() {
-//         println!("{}", cfg.pp_prod(pid));
-//     }
-// }
 
 static ASCII_LOWER: [char; 26] = [
     'a', 'b', 'c', 'd', 'e',
@@ -153,15 +134,6 @@ impl CfgGen {
             temp_dir,
         }
     }
-
-    // fn remove_sym(&self, mut nt_reach: &mut Vec<LexSymbol>, sym: &LexSymbol) {
-    //     let sym_i = nt_reach
-    //         .iter()
-    //         .position(|lx_sym| lx_sym.eq(sym))
-    //         .expect("Unable to find lex symbol in nt_reach");
-    //     nt_reach.remove(sym_i);
-    //     // println!("nt_reach: {:?}", nt_reach);
-    // }
 
     fn get_lex_sym(&self, lex_syms: &Vec<&LexSymbol>, nt: &str) -> LexSymbol {
         match lex_syms.choose(&mut thread_rng()) {
@@ -315,11 +287,9 @@ impl CfgGen {
         let mut root_reach = Vec::<String>::new();
         {
             let root_rule = self.gen_rule("root", &mut root_reach);
-            // println!("root: {}, reach: {:?}", root_rule, root_reach);
             rules.push(root_rule);
         }
 
-        //root_reach.shuffle(&mut thread_rng());
         let mut i = 0;
         loop {
             if let Some(next_nt) = root_reach.get(i) {
@@ -428,8 +398,6 @@ pub(crate) fn start(cfg_size: usize, n: usize) {
 
     // LR(k) grammars
     parse_lrk_results(&cfg_result, &cfg_dir);
-    // let lrk_cfgs = cfg_result.lrk_grammars();
-    // println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
 
     cfg_result.write_results(&results_txt.as_path())
         .expect("Unable to save the results from Cfg run in a file");

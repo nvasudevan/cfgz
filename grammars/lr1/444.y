@@ -1,28 +1,27 @@
 %define lr.type canonical-lr
-
 %start root
 
 %%
 
-root: B C 'y' 'j' 's' | L 'j' 'y' | 'r'
+root: 'm' Q U 'w' M | 'w' | 'x' X
 ;
-B: 'c' 'x' 'y'
+Q: R 'w' | 'm' 'h' 't'
 ;
-C: 'c' 's'
+U:  | 'm' 'x' 'k' | 'k' 't' Q
 ;
-L: V B N | V 'c' M 's' | 'v'
+M: X 'o' U 'w' 'm'
 ;
-V: C H L 'x' | N 'h' 'j'
+X: R 'f'
 ;
-N: C | 'v'
+R: A | U I 'o' M
 ;
-M: B L | 'e' V | B 'v' 'x' 'j' N
+A: 'e' 'x' Q 'k' | 'w' M K 'h' 'k'
 ;
-H: 'o' L 'v' T 'y' | 'o' 'v' 'r' M
+I: 't' | 
 ;
-T:  | 'v' B 'r' 'x' 'j' | M C X V
+K: 'o' I | W A 'x'
 ;
-X: V L C | C L N
+W: K | 
 ;
 
 

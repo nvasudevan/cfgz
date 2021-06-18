@@ -44,7 +44,6 @@ pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
 
 pub(crate) fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
-    // let outputp = inputp.replace(".y", ".hyacc.c");
     let hyacc_run_secs = HYACC_TIMEOUT_SECS.to_string();
     let args: &[&str] = &[hyacc_run_secs.as_str(), HYACC_CMD, inputp, "-K", "-c"];
     let (s_code, out, err) = run(TIMEOUT_CMD, args)?;
@@ -113,14 +112,15 @@ pub(crate) fn run_lr1_tools(cfg: Cfg, cfg_no: usize, temp_dir: &str) -> CfgLr1Re
     let _ = fs::write(hyaccp, cfg.as_hyacc().as_str())
         .expect("Unable to write cfg in hyacc directory");
 
-    let (lrpar_lr1, lrpar_msg) = run_lrpar(lrparp);
-    let (bison_lr1, bison_msg) = run_bison(bisonp)
+    let (lrpar_lr1, _) = run_lrpar(lrparp);
+    let (bison_lr1, _) = run_bison(bisonp)
         .unwrap_or_else(|_| panic!("{} - Bison run failed!", bisonp.to_str().unwrap()));
-    let (hyacc_lr1, hyacc_msg) = run_hyacc(hyaccp)
+    let (hyacc_lr1, _) = run_hyacc(hyaccp)
         .unwrap_or_else(|_| panic!("{} - Hyacc run failed!", hyaccp.to_str().unwrap()));
 
-    CfgLr1Result::new(hyaccp.to_str().unwrap().to_string(), lrpar_lr1, lrpar_msg,
-                      bison_lr1, bison_msg, hyacc_lr1, hyacc_msg)
+    CfgLr1Result::new(bisonp.to_str().unwrap().to_owned(),
+                      hyaccp.to_str().unwrap().to_owned(),
+                      lrpar_lr1, bison_lr1, hyacc_lr1)
 }
 
 #[cfg(test)]

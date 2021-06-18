@@ -1,10 +1,9 @@
-use std::{fs, io};
-use std::path::Path;
+use std::fs;
 
 use chrono::prelude::Local;
 use chrono::Timelike;
-use prettytable::row;
-use prettytable::Table;
+// use prettytable::row;
+// use prettytable::Table;
 use rand::{Rng, thread_rng};
 use rand::prelude::SliceRandom;
 use rayon::prelude::*;
@@ -36,33 +35,36 @@ const MIN_SYMS_IN_ALT: usize = 0;
 const MAX_SYMS_IN_ALT: usize = 5;
 
 pub(crate) struct CfgLr1Result {
-    pub(crate) cfgp: String,
+    pub(crate) bisonp: String,
+    pub(crate) hyaccp: String,
     pub(crate) lrpar_lr1: bool,
-    pub(crate) lrpar_msg: String,
+    // pub(crate) lrpar_msg: String,
     pub(crate) bison_lr1: bool,
-    pub(crate) bison_msg: String,
+    // pub(crate) bison_msg: String,
     pub(crate) hyacc_lr1: bool,
-    pub(crate) hyacc_msg: String,
+    // pub(crate) hyacc_msg: String,
 }
 
 impl CfgLr1Result {
     pub(crate) fn new(
-        cfgp: String,
+        bisonp: String,
+        hyaccp: String,
         lrpar_lr1: bool,
-        lrpar_msg: String,
+        // lrpar_msg: String,
         bison_lr1: bool,
-        bison_msg: String,
+        // bison_msg: String,
         hyacc_lr1: bool,
-        hyacc_msg: String,
+        // hyacc_msg: String,
     ) -> Self {
         Self {
-            cfgp,
+            bisonp,
+            hyaccp,
             lrpar_lr1,
-            lrpar_msg,
+            // lrpar_msg,
             bison_lr1,
-            bison_msg,
+            // bison_msg,
             hyacc_lr1,
-            hyacc_msg,
+            // hyacc_msg,
         }
     }
 }
@@ -94,20 +96,20 @@ impl CfgGenResult {
             .collect()
     }
 
-    pub(crate) fn write_results(&self, results_txt: &Path) -> io::Result<()> {
-        let mut table = Table::new();
-        table.add_row(row!["cfg", "lrpar", "bison", "hyacc", "msg (lrpar)", "msg (bison)", "msg (hyacc)"]);
-        for res in &self.lr1_checks {
-            table.add_row(
-                row![
-                    res.cfgp, res.lrpar_lr1, res.bison_lr1, res.hyacc_lr1, res.lrpar_msg, res.bison_msg, res.hyacc_msg
-                ]);
-        }
-
-        std::fs::write(results_txt, table.to_string())?;
-
-        Ok(())
-    }
+    // pub(crate) fn write_results(&self, results_txt: &Path) -> io::Result<()> {
+    //     let mut table = Table::new();
+    //     table.add_row(row!["cfg", "lrpar", "bison", "hyacc", "msg (lrpar)", "msg (bison)", "msg (hyacc)"]);
+    //     for res in &self.lr1_checks {
+    //         table.add_row(
+    //             row![
+    //                 res.hyaccp, res.lrpar_lr1, res.bison_lr1, res.hyacc_lr1, res.lrpar_msg, res.bison_msg, res.hyacc_msg
+    //             ]);
+    //     }
+    //
+    //     std::fs::write(results_txt, table.to_string())?;
+    //
+    //     Ok(())
+    // }
 }
 
 struct CfgGen {
@@ -392,10 +394,10 @@ fn parse_lr1_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
         println!("=> copying lr(1) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(1) grammars ---");
         for res in lr1_cfgs {
-            let cfg_f = res.cfgp.split('/').last().unwrap();
+            let cfg_f = res.bisonp.split('/').last().unwrap();
             let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
-            println!("copying {} => {}", &res.cfgp, &target_cfg_f);
-            std::fs::copy(&res.cfgp, &target_cfg_f)
+            println!("copying {} => {}", &res.bisonp, &target_cfg_f);
+            std::fs::copy(&res.bisonp, &target_cfg_f)
                 .expect("Unable to copy lr(1) cfg");
         }
         println!("---------\n\n");
@@ -412,10 +414,10 @@ fn parse_lrk_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
         println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(k) grammars ---");
         for res in lrk_cfgs {
-            let cfg_f = res.cfgp.split('/').last().unwrap();
+            let cfg_f = res.hyaccp.split('/').last().unwrap();
             let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
-            println!("copying {} => {}", &res.cfgp, &target_cfg_f);
-            std::fs::copy(&res.cfgp, &target_cfg_f)
+            println!("copying {} => {}", &res.hyaccp, &target_cfg_f);
+            std::fs::copy(&res.hyaccp, &target_cfg_f)
                 .expect("Unable to copy lr(k) cfg");
         }
         println!("---------\n\n");
@@ -425,7 +427,6 @@ fn parse_lrk_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
 /// Generate a CFG of size `cfg_size`
 /// By `size`, we mean the number of rules
 pub(crate) fn start(cfg_size: usize, n: usize) {
-    println!("=> generating grammars of size {}", cfg_size);
     let non_terms: Vec<String> = ASCII_UPPER
         .choose_multiple(&mut thread_rng(), cfg_size - 1)
         .map(|c| c.to_string())
@@ -440,10 +441,9 @@ pub(crate) fn start(cfg_size: usize, n: usize) {
     let cfg_dir = format!("cfg_run_{}_{}_{}", now.hour(), now.minute(), now.second());
     let temp_dir = format!("/tmp/{}", cfg_dir);
     fs::create_dir(&temp_dir).expect("Unable to create a temporary directory");
-    println!("=> generating grammars in temp dir: {}", &temp_dir);
+    println!("=> generating grammars (size: {}) in temp dir: {}", cfg_size, &temp_dir);
     let cfg_gen = CfgGen::new(non_terms, terms, temp_dir.to_string());
     let cfg_result = cfg_gen.gen_par(n);
-    let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
 
     // LR(1) grammars
     parse_lr1_results(&cfg_result, &cfg_dir);
@@ -451,7 +451,11 @@ pub(crate) fn start(cfg_size: usize, n: usize) {
     // LR(k) grammars
     parse_lrk_results(&cfg_result, &cfg_dir);
 
-    cfg_result.write_results(&results_txt.as_path())
-        .expect("Unable to save the results from Cfg run in a file");
-    println!("=> results stored in {}", results_txt.to_str().unwrap());
+    // let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
+    // cfg_result.write_results(&results_txt.as_path())
+    //     .expect("Unable to save the results from Cfg run in a file");
+    // println!("=> results stored in {}", results_txt.to_str().unwrap());
+    println!("=> cleaning up temporary directory: {}", temp_dir);
+    std::fs::remove_dir_all(&temp_dir)
+        .expect(&format!("Unable to remove temporary directory {}", temp_dir));
 }

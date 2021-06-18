@@ -198,6 +198,60 @@ impl CfgGen {
         }
     }
 
+    /// checks if all the rules in a grammar are productive.
+    /// A rule is productive if a sentence can be generated from it.
+    /// A set of non-productive rules:
+    /// S: 'a' A | 'c'; A: 'x' B; b: 'b' A; (A invokes B and vice versa, and neither
+    /// generate a sentence)
+    fn is_productive(&self, cfg: &Cfg) -> bool {
+        // println!("cfg:\n{}", cfg);
+        let mut productive_nts = Vec::<&str>::new();
+        loop {
+            let mut found_productive = false;
+            // println!("productive non-terms: {:?}", productive_nts);
+            // we ignore root rule (indexed at 0).
+            for rule in &cfg.rules.as_slice()[1..] {
+                let lhs_s = rule.lhs.as_str();
+                // if the rule is not in productive set already
+                if !productive_nts.contains(&lhs_s) {
+                    // println!("not in prod_nts: {}", rule);
+                    let mut rule_productive = false;
+                    for alt in &rule.rhs {
+                        let mut terminates = true;
+                        // an alt terminate if all of its symbols are terminals or
+                        // the non-terms are terminating (so in productive_nts)
+                        for sym in &alt.lex_symbols {
+                            // if it a non-terminal and not in productive_nts -- break
+                            if let LexSymbol::NonTerm(nt) = sym {
+                                let nt_tk = nt.tok.as_str();
+                                if !productive_nts.contains(&nt_tk) {
+                                    terminates = false;
+                                    break
+                                }
+                            }
+                        }
+                        if terminates {
+                            // println!("productive alt: {}", alt);
+                            rule_productive = true;
+                            break
+                        }
+                    }
+                    if rule_productive {
+                        found_productive = true;
+                        productive_nts.push(lhs_s);
+                    }
+                }
+            }
+            if ! found_productive {
+                // println!("not found productive: {:?} == {:?}", productive_nts, self.non_terms);
+                if productive_nts.len() == self.non_terms.len() {
+                    return true;
+                }
+                return false;
+            }
+        }
+    }
+
     /// Generate a Cfg rule.
     /// For `root` rule, do not generate an empty alt
     /// For rule with only one alt, do not generate an empty alt.
@@ -308,9 +362,12 @@ impl CfgGen {
         //     .collect();
         //
         let cfg = Cfg::new(rules);
-        let res = lr1_check::run_lr1_tools(cfg, cfg_no, &self.temp_dir);
-
-        Some(res)
+        if self.is_productive(&cfg) {
+            eprint!(".");
+            return Some(lr1_check::run_lr1_tools(cfg, cfg_no, &self.temp_dir));
+        }
+        eprint!("X");
+        None
     }
 
     fn gen_par(&self, n: usize) -> CfgGenResult {

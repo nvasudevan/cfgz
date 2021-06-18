@@ -130,71 +130,67 @@ mod tests {
     use super::*;
 
     fn test_alt_1() -> RuleAlt {
-        let mut alt = RuleAlt::new(vec![]);
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
-        alt.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("c".to_string())));
+        let mut alt_syms = Vec::<LexSymbol>::new();
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        alt_syms.push(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("c".to_string())));
 
-        alt
+        RuleAlt::new(alt_syms)
     }
 
     fn test_alt_2() -> RuleAlt {
-        let mut alt = RuleAlt::new(vec![]);
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("d".to_string())));
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("e".to_string())));
+        let mut alt_syms = Vec::<LexSymbol>::new();
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("d".to_string())));
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("e".to_string())));
 
-        alt
+        RuleAlt::new(alt_syms)
     }
 
     fn test_alt_3() -> RuleAlt {
-        let mut alt = RuleAlt::new(vec![]);
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("c".to_string())));
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("d".to_string())));
+        let mut alt_syms = Vec::<LexSymbol>::new();
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("c".to_string())));
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("d".to_string())));
 
-        alt
+        RuleAlt::new(alt_syms)
     }
 
-    #[allow(non_snake_case)]
-    fn rule_S_lr1() -> (String, Vec<RuleAlt>) {
+    fn start_rule_lr1() -> CfgRule {
         let lhs = "S".to_string();
         let alt1 = test_alt_1(); // 'a' B 'c'
-        let alt2 = test_alt_2(); // 'd' 'e'
+        let alt2 = test_alt_2(); // 'c' D 'e'
         let rhs = vec![alt1, alt2];
 
-        (lhs, rhs)
+        CfgRule::new(lhs, rhs)
     }
 
-    #[allow(non_snake_case)]
-    fn rule_S_non_lr1() -> (String, Vec<RuleAlt>) {
+    fn start_rule_non_lr1() -> CfgRule {
         let lhs = "S".to_string();
         let alt1 = test_alt_1(); // 'a' B 'c'
         let alt2 = test_alt_2(); // 'd' 'e'
         let alt3 = test_alt_3(); // 'a' 'b' 'c' 'd'
         let rhs = vec![alt1, alt2, alt3];
 
-        (lhs, rhs)
+        CfgRule::new(lhs, rhs)
     }
 
     #[allow(non_snake_case)]
-    fn rule_B() -> (String, Vec<RuleAlt>) {
+    fn rule_B() -> CfgRule {
         let lhs = "B".to_string();
-        let mut alt = RuleAlt::new(vec![]);
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        let mut alt_syms = Vec::<LexSymbol>::new();
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        let alt = RuleAlt::new(alt_syms);
         let rhs = vec![alt];
 
-        (lhs, rhs)
+        CfgRule::new(lhs, rhs)
     }
 
     #[allow(non_snake_case)]
     fn lr1_cfg() -> Cfg {
         let mut rules: Vec<CfgRule> = vec![];
-        let (lhs_S, rhs_S) = rule_S_lr1();
-        rules.push(CfgRule::new(lhs_S, rhs_S));
-
-        let (lhs_B, rhs_B) = rule_B();
-        rules.push(CfgRule::new(lhs_B, rhs_B));
+        rules.push(start_rule_lr1());
+        rules.push(rule_B());
 
         Cfg::new(rules)
     }
@@ -204,33 +200,38 @@ mod tests {
         let mut rules: Vec<CfgRule> = vec![];
         // rule S
         let s_lhs = "S".to_string();
-        let mut s_alt1 = RuleAlt::new(vec![]);
-        s_alt1.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("F".to_string())));
-        s_alt1.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
-        s_alt1.append_sym(LexSymbol::Term(TermSymbol::new("x".to_string())));
+        let mut alt1_syms = Vec::<LexSymbol>::new();
+        alt1_syms.push(LexSymbol::NonTerm(NonTermSymbol::new("F".to_string())));
+        alt1_syms.push(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
+        alt1_syms.push(LexSymbol::Term(TermSymbol::new("x".to_string())));
+        let s_alt1 = RuleAlt::new(alt1_syms);
 
-        let mut s_alt2 = RuleAlt::new(vec![]);
-        s_alt2.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("G".to_string())));
-        s_alt2.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
-        s_alt2.append_sym(LexSymbol::Term(TermSymbol::new("y".to_string())));
+        let mut alt2_syms = Vec::<LexSymbol>::new();
+        alt2_syms.push(LexSymbol::NonTerm(NonTermSymbol::new("G".to_string())));
+        alt2_syms.push(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
+        alt2_syms.push(LexSymbol::Term(TermSymbol::new("y".to_string())));
+        let s_alt2 = RuleAlt::new(alt2_syms);
 
         let s_rhs = vec![s_alt1, s_alt2];
         rules.push(CfgRule::new(s_lhs, s_rhs));
 
         // rule F
-        let mut f_alt1 = RuleAlt::new(vec![]);
-        f_alt1.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        let mut f_alt_syms = Vec::<LexSymbol>::new();
+        f_alt_syms.push(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        let f_alt1 = RuleAlt::new(f_alt_syms);
         rules.push(CfgRule::new("F".to_string(), vec![f_alt1]));
 
         // rule G
-        let mut g_alt1 = RuleAlt::new(vec![]);
-        g_alt1.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        let mut g_alt_syms = Vec::<LexSymbol>::new();
+        g_alt_syms.push(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        let g_alt1 = RuleAlt::new(g_alt_syms);
         rules.push(CfgRule::new("G".to_string(), vec![g_alt1]));
 
         // rule B
-        let mut b_alt1 = RuleAlt::new(vec![]);
-        b_alt1.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
-        b_alt1.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        let mut b_alt_syms = Vec::<LexSymbol>::new();
+        b_alt_syms.push(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        b_alt_syms.push(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        let b_alt1 = RuleAlt::new(b_alt_syms);
         rules.push(CfgRule::new("B".to_string(), vec![b_alt1]));
 
         Cfg::new(rules)
@@ -238,11 +239,8 @@ mod tests {
 
     fn non_lr1_cfg() -> Cfg {
         let mut rules: Vec<CfgRule> = vec![];
-        let (lhs_S, rhs_S) = rule_S_non_lr1();
-        rules.push(CfgRule::new(lhs_S, rhs_S));
-
-        let (lhs_B, rhs_B) = rule_B();
-        rules.push(CfgRule::new(lhs_B, rhs_B));
+        rules.push(start_rule_non_lr1());
+        rules.push(rule_B());
 
         Cfg::new(rules)
     }

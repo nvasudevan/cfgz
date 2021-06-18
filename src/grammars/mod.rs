@@ -231,63 +231,59 @@ mod tests {
     use super::RuleAlt;
 
     fn test_alt_1() -> RuleAlt {
-        let mut alt = RuleAlt::new(vec![]);
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("a".to_string())));
-        alt.append_sym(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("c".to_string())));
+        let mut alt_syms = Vec::<LexSymbol>::new();
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("a".to_string())));
+        alt_syms.push(LexSymbol::NonTerm(NonTermSymbol::new("B".to_string())));
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("c".to_string())));
 
-        alt
+        RuleAlt::new(alt_syms)
     }
 
     fn test_alt_2() -> RuleAlt {
-        let mut alt = RuleAlt::new(vec![]);
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("d".to_string())));
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("e".to_string())));
+        let mut alt_syms = Vec::<LexSymbol>::new();
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("d".to_string())));
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("e".to_string())));
 
-        alt
+        RuleAlt::new(alt_syms)
     }
 
     #[allow(non_snake_case)]
-    fn rule_S() -> (String, Vec<RuleAlt>) {
+    fn rule_S() -> CfgRule {
         let lhs = "S".to_string();
         let alt1 = test_alt_1(); // 'a' B 'c'
         let alt2 = test_alt_2(); // 'c' D 'e'
         let rhs = vec![alt1, alt2];
 
-        (lhs, rhs)
+        CfgRule::new(lhs, rhs)
     }
 
     #[allow(non_snake_case)]
-    fn rule_B() -> (String, Vec<RuleAlt>) {
+    fn rule_B() -> CfgRule {
         let lhs = "B".to_string();
-        let mut alt = RuleAlt::new(vec![]);
-        alt.append_sym(LexSymbol::Term(TermSymbol::new("b".to_string())));
-        let rhs = vec![alt];
+        let mut alt_syms = Vec::<LexSymbol>::new();
+        alt_syms.push(LexSymbol::Term(TermSymbol::new("b".to_string())));
+        let rhs = vec![RuleAlt::new(alt_syms)];
 
-        (lhs, rhs)
+        CfgRule::new(lhs, rhs)
     }
 
     fn simple_cfg() -> Cfg {
         let mut rules: Vec<CfgRule> = vec![];
-        let (lhs_S, rhs_S) = rule_S();
-        rules.push(CfgRule::new(lhs_S, rhs_S));
-
-        let (lhs_B, rhs_B) = rule_B();
-        rules.push(CfgRule::new(lhs_B, rhs_B));
+        rules.push(rule_S());
+        rules.push(rule_B());
 
         Cfg::new(rules)
     }
 
     #[test]
     fn test_alt() {
-        let alt1 = test_alt_1();
-        assert_eq!(alt1.to_string(), "'a' B 'c'");
+        let alt = test_alt_1();
+        assert_eq!(alt.to_string(), "'a' B 'c'");
     }
 
     #[test]
     fn test_rule() {
-        let (lhs, rhs) = rule_S();
-        let rule = CfgRule::new(lhs, rhs);
+        let rule = rule_S();
         assert_eq!(rule.to_string(), "S: 'a' B 'c' | 'd' 'e'")
     }
 

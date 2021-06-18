@@ -1,5 +1,7 @@
 extern crate rayon;
-#[macro_use] extern crate prettytable;
+// #[macro_use] extern crate prettytable;
+
+use std::env;
 
 mod grammars;
 mod lr1_check;
@@ -19,5 +21,9 @@ mod lr1_check;
 // }
 
 fn main() {
-    grammars::gen::start(10, 10000);
+    let args: Vec<String> = env::args().collect();
+    let base_grammar_dir = &args[1];
+    for cfg_size in 10..12 {
+        grammars::gen::start(cfg_size, 100, base_grammar_dir);
+    }
 }

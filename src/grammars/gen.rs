@@ -384,12 +384,12 @@ impl CfgGen {
     }
 }
 
-fn parse_lr1_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
+fn parse_lr1_results(cfg_result: &CfgGenResult, base_grammar_dir: &str, cfg_dir: &str) {
     let lr1_cfgs = cfg_result.lr1_grammars();
     println!("\n=> generated {}/{} lr(1) grammars", lr1_cfgs.len(), cfg_result.lr1_checks.len());
 
     if !lr1_cfgs.is_empty() {
-        let target_cfg_dir = format!("./grammars/lr1/{}", cfg_dir);
+        let target_cfg_dir = format!("{}/lr1/{}", base_grammar_dir, cfg_dir);
         fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
         println!("=> copying lr(1) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(1) grammars ---");
@@ -404,12 +404,12 @@ fn parse_lr1_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
     }
 }
 
-fn parse_lrk_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
+fn parse_lrk_results(cfg_result: &CfgGenResult, base_grammar_dir: &str, cfg_dir: &str) {
     let lrk_cfgs = cfg_result.lrk_grammars();
     println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
 
     if !lrk_cfgs.is_empty() {
-        let target_cfg_dir = format!("./grammars/lr_k/{}", cfg_dir);
+        let target_cfg_dir = format!("{}/lr_k/{}", base_grammar_dir, cfg_dir);
         fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
         println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(k) grammars ---");
@@ -426,7 +426,7 @@ fn parse_lrk_results(cfg_result: &CfgGenResult, cfg_dir: &str) {
 
 /// Generate a CFG of size `cfg_size`
 /// By `size`, we mean the number of rules
-pub(crate) fn start(cfg_size: usize, n: usize) {
+pub(crate) fn start(cfg_size: usize, n: usize, base_grammar_dir: &str) {
     let non_terms: Vec<String> = ASCII_UPPER
         .choose_multiple(&mut thread_rng(), cfg_size - 1)
         .map(|c| c.to_string())
@@ -446,10 +446,10 @@ pub(crate) fn start(cfg_size: usize, n: usize) {
     let cfg_result = cfg_gen.gen_par(n);
 
     // LR(1) grammars
-    parse_lr1_results(&cfg_result, &cfg_dir);
+    parse_lr1_results(&cfg_result, base_grammar_dir, &cfg_dir);
 
     // LR(k) grammars
-    parse_lrk_results(&cfg_result, &cfg_dir);
+    parse_lrk_results(&cfg_result, base_grammar_dir, &cfg_dir);
 
     // let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
     // cfg_result.write_results(&results_txt.as_path())

@@ -1,11 +1,16 @@
 use std::fs;
 
-use chrono::prelude::Local;
-use chrono::Timelike;
+use chrono::{
+    prelude::Local,
+    Timelike
+};
 // use prettytable::row;
 // use prettytable::Table;
-use rand::{Rng, thread_rng};
-use rand::prelude::SliceRandom;
+use rand::{
+    Rng, thread_rng,
+    distributions::Alphanumeric,
+    prelude::SliceRandom
+};
 use rayon::prelude::*;
 
 use crate::grammars::{Cfg, CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
@@ -89,10 +94,11 @@ impl CfgGenResult {
             .collect()
     }
 
+    /// To avoid duplication, only write cfg's that have not been captured by `lr1_grammars`
     pub(crate) fn lrk_grammars(&self) -> Vec<&CfgLr1Result> {
         self.lr1_checks
             .iter()
-            .filter(|res| res.hyacc_lr1)
+            .filter(|res| res.hyacc_lr1 && !res.bison_lr1)
             .collect()
     }
 
@@ -384,18 +390,29 @@ impl CfgGen {
     }
 }
 
-fn parse_lr1_results(cfg_result: &CfgGenResult, base_grammar_dir: &str, cfg_dir: &str) {
+fn rand_alphanumeric(s_size: usize) -> String {
+    let rnd_str = thread_rng()
+        .sample_iter(Alphanumeric)
+        .take(s_size)
+        .collect();
+
+    rnd_str
+}
+
+fn parse_lr1_results(cfg_size: usize, cfg_result: &CfgGenResult, base_grammar_dir: &str) {
     let lr1_cfgs = cfg_result.lr1_grammars();
     println!("\n=> generated {}/{} lr(1) grammars", lr1_cfgs.len(), cfg_result.lr1_checks.len());
 
     if !lr1_cfgs.is_empty() {
-        let target_cfg_dir = format!("{}/lr1/{}", base_grammar_dir, cfg_dir);
-        fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
+        let target_cfg_dir = format!("{}/lr1/{}", base_grammar_dir, cfg_size);
+        let _ = fs::create_dir(&target_cfg_dir)
+            .map_err(|_| format!("{} directory exists!", target_cfg_dir));
         println!("=> copying lr(1) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(1) grammars ---");
         for res in lr1_cfgs {
-            let cfg_f = res.bisonp.split('/').last().unwrap();
-            let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
+            // let cfg_f = res.bisonp.split('/').last().unwrap();
+            let rnd_str = rand_alphanumeric(8);
+            let target_cfg_f = format!("{}/{}", target_cfg_dir, rnd_str);
             println!("copying {} => {}", &res.bisonp, &target_cfg_f);
             std::fs::copy(&res.bisonp, &target_cfg_f)
                 .expect("Unable to copy lr(1) cfg");
@@ -404,18 +421,18 @@ fn parse_lr1_results(cfg_result: &CfgGenResult, base_grammar_dir: &str, cfg_dir:
     }
 }
 
-fn parse_lrk_results(cfg_result: &CfgGenResult, base_grammar_dir: &str, cfg_dir: &str) {
+fn parse_lrk_results(cfg_size: usize, cfg_result: &CfgGenResult, base_grammar_dir: &str) {
     let lrk_cfgs = cfg_result.lrk_grammars();
     println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
 
     if !lrk_cfgs.is_empty() {
-        let target_cfg_dir = format!("{}/lr_k/{}", base_grammar_dir, cfg_dir);
-        fs::create_dir(&target_cfg_dir).expect("Unable to create cfg directory under grammars");
+        let target_cfg_dir = format!("{}/lr_k/{}", base_grammar_dir, cfg_size);
+        let _ = fs::create_dir(&target_cfg_dir).map_err(|_| format!("{} directory exists!", target_cfg_dir));
         println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(k) grammars ---");
         for res in lrk_cfgs {
-            let cfg_f = res.hyaccp.split('/').last().unwrap();
-            let target_cfg_f = format!("{}/{}", target_cfg_dir, cfg_f);
+            let rnd_str = rand_alphanumeric(8);
+            let target_cfg_f = format!("{}/{}", target_cfg_dir, rnd_str);
             println!("copying {} => {}", &res.hyaccp, &target_cfg_f);
             std::fs::copy(&res.hyaccp, &target_cfg_f)
                 .expect("Unable to copy lr(k) cfg");
@@ -446,10 +463,10 @@ pub(crate) fn start(cfg_size: usize, n: usize, base_grammar_dir: &str) {
     let cfg_result = cfg_gen.gen_par(n);
 
     // LR(1) grammars
-    parse_lr1_results(&cfg_result, base_grammar_dir, &cfg_dir);
+    parse_lr1_results(cfg_size, &cfg_result, base_grammar_dir);
 
     // LR(k) grammars
-    parse_lrk_results(&cfg_result, base_grammar_dir, &cfg_dir);
+    parse_lrk_results(cfg_size, &cfg_result, base_grammar_dir);
 
     // let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
     // cfg_result.write_results(&results_txt.as_path())

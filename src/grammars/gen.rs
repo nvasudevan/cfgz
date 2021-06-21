@@ -390,13 +390,11 @@ impl CfgGen {
     }
 }
 
-fn rand_alphanumeric(s_size: usize) -> String {
-    let rnd_str = thread_rng()
+fn rand_alphanumeric(str_len: usize) -> String {
+    thread_rng()
         .sample_iter(Alphanumeric)
-        .take(s_size)
-        .collect();
-
-    rnd_str
+        .take(str_len)
+        .collect()
 }
 
 fn parse_lr1_results(cfg_size: usize, cfg_result: &CfgGenResult, base_grammar_dir: &str) {
@@ -410,7 +408,6 @@ fn parse_lr1_results(cfg_size: usize, cfg_result: &CfgGenResult, base_grammar_di
         println!("=> copying lr(1) grammars to target grammar dir: {}", target_cfg_dir);
         println!("--- lr(1) grammars ---");
         for res in lr1_cfgs {
-            // let cfg_f = res.bisonp.split('/').last().unwrap();
             let rnd_str = rand_alphanumeric(8);
             let target_cfg_f = format!("{}/{}", target_cfg_dir, rnd_str);
             println!("copying {} => {}", &res.bisonp, &target_cfg_f);

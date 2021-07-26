@@ -2,17 +2,17 @@ use std::fmt;
 
 use crate::grammars::gen::CfgGenError;
 
-pub mod gen;
+pub(crate) mod gen;
 mod lr1_check;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub(crate) enum SymType {
+enum SymType {
     NonTerminal,
     Terminal,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct NonTermSymbol {
+struct NonTermSymbol {
     tok: String,
     tok_type: SymType,
 }
@@ -24,7 +24,7 @@ impl fmt::Display for NonTermSymbol {
 }
 
 impl NonTermSymbol {
-    pub(crate) fn new(tok: String) -> Self {
+    fn new(tok: String) -> Self {
         Self {
             tok,
             tok_type: SymType::NonTerminal,
@@ -55,7 +55,7 @@ impl fmt::Display for TermSymbol {
 }
 
 impl TermSymbol {
-    pub(crate) fn new(tok: String) -> Self {
+    fn new(tok: String) -> Self {
         Self {
             tok,
             tok_type: SymType::Terminal,
@@ -74,7 +74,7 @@ impl PartialEq for TermSymbol {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum LexSymbol {
+enum LexSymbol {
     NonTerm(NonTermSymbol),
     Term(TermSymbol),
 }
@@ -93,7 +93,7 @@ impl fmt::Display for LexSymbol {
 }
 
 #[derive(Debug)]
-pub(crate) struct RuleAlt {
+struct RuleAlt {
     lex_symbols: Vec<LexSymbol>,
 }
 
@@ -122,19 +122,19 @@ impl PartialEq for RuleAlt {
 }
 
 impl RuleAlt {
-    pub(crate) fn new(lex_symbols: Vec<LexSymbol>) -> Self {
+    fn new(lex_symbols: Vec<LexSymbol>) -> Self {
         Self {
             lex_symbols
         }
     }
 
-    pub(crate) fn as_lrpar(&self) -> String {
+    fn as_lrpar(&self) -> String {
         format!("{} {{ }}", self)
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct CfgRule {
+struct CfgRule {
     lhs: String,
     rhs: Vec<RuleAlt>,
 }
@@ -155,7 +155,7 @@ impl fmt::Display for CfgRule {
 }
 
 impl CfgRule {
-    pub(crate) fn new(lhs: String, rhs: Vec<RuleAlt>) -> Self {
+    fn new(lhs: String, rhs: Vec<RuleAlt>) -> Self {
         Self {
             lhs,
             rhs,
@@ -192,7 +192,7 @@ impl fmt::Display for Cfg {
 }
 
 impl Cfg {
-    pub(crate) fn new(rules: Vec<CfgRule>) -> Self {
+    fn new(rules: Vec<CfgRule>) -> Self {
         Self {
             rules
         }

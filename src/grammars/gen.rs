@@ -52,7 +52,7 @@ impl CfgGenError {
     }
 }
 
-pub struct CfgLr1Result {
+pub(crate) struct CfgLr1Result {
     pub(crate) bisonp: String,
     pub(crate) hyaccp: String,
     pub(crate) lrpar_lr1: bool,

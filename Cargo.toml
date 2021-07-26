@@ -10,6 +10,11 @@ edition = "2018"
 doc = false
 name = "cfgz"
 
+[lib]
+name = "cfgz"
+path = "src/lib.rs"
+
+
 [build-dependencies]
 cfgrammar = "0.10.1"
 lrlex = "0.10.1"

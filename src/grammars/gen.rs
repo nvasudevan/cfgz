@@ -1,22 +1,22 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use chrono::{
     prelude::Local,
-    Timelike
+    Timelike,
 };
 // use prettytable::row;
 // use prettytable::Table;
 use rand::{
-    Rng, thread_rng,
-    distributions::Alphanumeric,
-    prelude::SliceRandom
+    distributions::Alphanumeric, prelude::SliceRandom,
+    Rng,
+    thread_rng,
 };
 use rayon::prelude::*;
 
 use crate::grammars::{Cfg, CfgRule, LexSymbol, NonTermSymbol, RuleAlt, TermSymbol};
-use crate::lr1_check;
+use crate::grammars::lr1_check;
 
-static ASCII_LOWER: [char; 26] = [
+const ASCII_LOWER: [char; 26] = [
     'a', 'b', 'c', 'd', 'e',
     'f', 'g', 'h', 'i', 'j',
     'k', 'l', 'm', 'n', 'o',
@@ -25,7 +25,7 @@ static ASCII_LOWER: [char; 26] = [
     'z',
 ];
 
-static ASCII_UPPER: [char; 26] = [
+const ASCII_UPPER: [char; 26] = [
     'A', 'B', 'C', 'D', 'E',
     'F', 'G', 'H', 'I', 'J',
     'K', 'L', 'M', 'N', 'O',
@@ -39,7 +39,20 @@ const MAX_ALTS: usize = 3;
 const MIN_SYMS_IN_ALT: usize = 0;
 const MAX_SYMS_IN_ALT: usize = 5;
 
-pub(crate) struct CfgLr1Result {
+#[derive(Debug)]
+pub struct CfgGenError {
+    msg: String,
+}
+
+impl CfgGenError {
+    fn new(msg: String) -> Self {
+        Self {
+            msg
+        }
+    }
+}
+
+pub struct CfgLr1Result {
     pub(crate) bisonp: String,
     pub(crate) hyaccp: String,
     pub(crate) lrpar_lr1: bool,
@@ -74,19 +87,27 @@ impl CfgLr1Result {
     }
 }
 
-struct CfgGenResult {
-    lr1_checks: Vec<CfgLr1Result>,
+/// Stores the LR1 check result for CFGs
+pub(crate) struct CfgGenResult {
+    /// LR1 checks for CFGs
+    lr_checks: Vec<CfgLr1Result>,
+    /// directory containing the CFGs
+    src_grammar_dir: String,
+    /// Grammar size
+    cfg_size: usize,
 }
 
 impl CfgGenResult {
-    pub(crate) fn new(lr1_checks: Vec<CfgLr1Result>) -> Self {
+    fn new(lr_checks: Vec<CfgLr1Result>, src_grammar_dir: String, cfg_size: usize) -> Self {
         Self {
-            lr1_checks
+            lr_checks,
+            src_grammar_dir,
+            cfg_size,
         }
     }
 
-    pub(crate) fn lr1_grammars(&self) -> Vec<&CfgLr1Result> {
-        self.lr1_checks
+    fn lr1_grammars(&self) -> Vec<&CfgLr1Result> {
+        self.lr_checks
             .iter()
             .filter(|res|
                 res.lrpar_lr1 && res.bison_lr1
@@ -94,12 +115,90 @@ impl CfgGenResult {
             .collect()
     }
 
-    /// To avoid duplication, only write cfg's that have not been captured by `lr1_grammars`
-    pub(crate) fn lrk_grammars(&self) -> Vec<&CfgLr1Result> {
-        self.lr1_checks
+    /// To avoid duplication, only write cfgs not captured by `lr1_grammars`
+    fn lrk_grammars(&self) -> Vec<&CfgLr1Result> {
+        self.lr_checks
             .iter()
             .filter(|res| res.hyacc_lr1 && !res.bison_lr1)
             .collect()
+    }
+
+    fn write_lr1(&self, out_dir: &str) -> Result<(), CfgGenError> {
+        let lr1_cfgs = self.lr1_grammars();
+        println!("\n=> generated {}/{} lr(1) grammars", lr1_cfgs.len(), self.lr_checks.len());
+
+        if !lr1_cfgs.is_empty() {
+            let target_cfg_dir = format!("{}/lr1/{}", out_dir, self.cfg_size);
+            let _ = fs::create_dir(&target_cfg_dir)
+                .map_err(|_| CfgGenError::new(
+                    format!("{} already directory exists!", target_cfg_dir)
+                ))?;
+            println!("=> copying lr(1) grammars to target dir: {}", target_cfg_dir);
+            println!("--- lr(1) grammars ---");
+            for res in lr1_cfgs {
+                let rnd_str = rand_alphanumeric(8);
+                let target_cfg_f = format!("{}/{}", target_cfg_dir, rnd_str);
+                println!("copying {} => {}", &res.bisonp, &target_cfg_f);
+                std::fs::copy(&res.bisonp, &target_cfg_f)
+                    .map_err(|e| CfgGenError::new(
+                        format!("Unable to copy cfg {} to {}, error:\n{}",
+                                &res.bisonp,
+                                target_cfg_f,
+                                e.to_string())
+                    ))?;
+            }
+            println!("---------\n\n");
+        }
+
+        Ok(())
+    }
+
+    fn write_lrk(&self, out_dir: &str) -> Result<(), CfgGenError> {
+        let lrk_cfgs = self.lrk_grammars();
+        println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), self.lr_checks.len());
+
+        if !lrk_cfgs.is_empty() {
+            let target_cfg_dir = format!("{}/lr_k/{}", out_dir, self.cfg_size);
+            let _ = fs::create_dir(&target_cfg_dir).map_err(|_|
+                CfgGenError::new(
+                    format!("{} directory already exists!", target_cfg_dir)
+                ))?;
+            println!("=> copying lr(k) grammars to target dir: {}", target_cfg_dir);
+            println!("--- lr(k) grammars ---");
+            for res in lrk_cfgs {
+                let rnd_str = rand_alphanumeric(8);
+                let target_cfg_f = format!("{}/{}", target_cfg_dir, rnd_str);
+                println!("copying {} => {}", &res.hyaccp, &target_cfg_f);
+                std::fs::copy(&res.hyaccp, &target_cfg_f)
+                    .map_err(|e|
+                        CfgGenError::new(format!(
+                            "Unable to copy lr(k) cfg {} to {}, Error:\n{}",
+                            &res.hyaccp, &target_cfg_f, e.to_string()
+                        )
+                        ))?;
+            }
+            println!("---------\n\n");
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn write_results(&self, out_dir: &str) -> Result<(), CfgGenError> {
+        self.write_lr1(out_dir)?;
+        self.write_lrk(out_dir)?;
+
+        println!("=> cleaning up temporary directory: {}", self.src_grammar_dir);
+        let src_p = Path::new(&self.src_grammar_dir);
+        std::fs::remove_dir_all(&src_p)
+            .map_err(|e|
+                CfgGenError::new(
+                    format!("Unable to remove src grammar directory {}, Error:\n{}",
+                            &self.src_grammar_dir,
+                        e.to_string()
+                    )
+                ))?;
+
+        Ok(())
     }
 
     // pub(crate) fn write_results(&self, results_txt: &Path) -> io::Result<()> {
@@ -118,28 +217,38 @@ impl CfgGenResult {
     // }
 }
 
-struct CfgGen {
+pub(crate) struct CfgGen {
+    cfg_size: usize,
     non_terms: Vec<String>,
     lex_syms: Vec<LexSymbol>,
-    temp_dir: String,
 }
 
 impl CfgGen {
-    fn new(non_terms: Vec<String>, terms: Vec<String>, temp_dir: String) -> Self {
+    pub(crate) fn new(cfg_size: usize) -> Self {
+        // we also have a root non-term, so we need one less
+        let non_terms: Vec<String> = ASCII_UPPER
+            .choose_multiple(&mut thread_rng(), cfg_size - 1)
+            .map(|c| c.to_string())
+            .collect();
+        let terms: Vec<String> = ASCII_LOWER
+            .choose_multiple(&mut thread_rng(), cfg_size)
+            .map(|c| c.to_string())
+            .collect();
+
         let mut lex_syms: Vec<LexSymbol> = terms
             .iter()
             .map(|t| LexSymbol::Term(TermSymbol::new(t.to_string())))
             .collect();
-        // we exclude the `root` symbol
+
         for nt in non_terms.iter() {
             lex_syms.push(LexSymbol::NonTerm(NonTermSymbol::new(nt.to_string())));
         }
         lex_syms.shuffle(&mut thread_rng());
 
         Self {
+            cfg_size,
             non_terms,
             lex_syms,
-            temp_dir,
         }
     }
 
@@ -234,14 +343,14 @@ impl CfgGen {
                                 let nt_tk = nt.tok.as_str();
                                 if !productive_nts.contains(&nt_tk) {
                                     terminates = false;
-                                    break
+                                    break;
                                 }
                             }
                         }
                         if terminates {
                             // println!("productive alt: {}", alt);
                             rule_productive = true;
-                            break
+                            break;
                         }
                     }
                     if rule_productive {
@@ -250,7 +359,7 @@ impl CfgGen {
                     }
                 }
             }
-            if ! found_productive {
+            if !found_productive {
                 // println!("not found productive: {:?} == {:?}", productive_nts, self.non_terms);
                 if productive_nts.len() == self.non_terms.len() {
                     return true;
@@ -339,7 +448,7 @@ impl CfgGen {
         }
     }
 
-    fn generate(&self, cfg_no: usize) -> Option<CfgLr1Result> {
+    fn generate(&self, cfg_no: usize, temp_dir: &str) -> Option<CfgLr1Result> {
         let mut rules = Vec::<CfgRule>::new();
         let mut root_reach = Vec::<String>::new();
         {
@@ -362,31 +471,33 @@ impl CfgGen {
             return None;
         }
 
-        // let rules: Vec<CfgRule> = self.non_terms
-        //     .iter()
-        //     .map(|nt| {
-        //         self.gen_rule(nt, &mut nt_reach)
-        //     })
-        //     .collect();
-        //
         let cfg = Cfg::new(rules);
         if self.is_productive(&cfg) {
             eprint!(".");
-            return Some(lr1_check::run_lr1_tools(cfg, cfg_no, &self.temp_dir));
+            return Some(lr1_check::run_lr1_tools(cfg, cfg_no, temp_dir));
         }
         eprint!("X");
         None
     }
 
-    fn gen_par(&self, n: usize) -> CfgGenResult {
+    /// Generate CFGs in parallel
+    pub(crate) fn gen_par(&self, n: usize) -> CfgGenResult {
+        let now = Local::now();
+        let grammar_dir = format!("/tmp/cfg_run_{}_{}_{}",
+                                  now.hour(),
+                                  now.minute(),
+                                  now.second()
+        );
+        fs::create_dir(&grammar_dir).expect("Unable to create a temporary directory");
+
         let cfg_result: Vec<CfgLr1Result> = (0..n)
             .into_par_iter()
             .filter_map(|i| {
-                self.generate(i)
+                self.generate(i, &grammar_dir)
             })
             .collect();
 
-        CfgGenResult::new(cfg_result)
+        CfgGenResult::new(cfg_result, grammar_dir.to_owned(), self.cfg_size)
     }
 }
 
@@ -395,81 +506,4 @@ fn rand_alphanumeric(str_len: usize) -> String {
         .sample_iter(Alphanumeric)
         .take(str_len)
         .collect()
-}
-
-fn parse_lr1_results(cfg_size: usize, cfg_result: &CfgGenResult, base_grammar_dir: &str) {
-    let lr1_cfgs = cfg_result.lr1_grammars();
-    println!("\n=> generated {}/{} lr(1) grammars", lr1_cfgs.len(), cfg_result.lr1_checks.len());
-
-    if !lr1_cfgs.is_empty() {
-        let target_cfg_dir = format!("{}/lr1/{}", base_grammar_dir, cfg_size);
-        let _ = fs::create_dir(&target_cfg_dir)
-            .map_err(|_| format!("{} directory exists!", target_cfg_dir));
-        println!("=> copying lr(1) grammars to target grammar dir: {}", target_cfg_dir);
-        println!("--- lr(1) grammars ---");
-        for res in lr1_cfgs {
-            let rnd_str = rand_alphanumeric(8);
-            let target_cfg_f = format!("{}/{}", target_cfg_dir, rnd_str);
-            println!("copying {} => {}", &res.bisonp, &target_cfg_f);
-            std::fs::copy(&res.bisonp, &target_cfg_f)
-                .expect("Unable to copy lr(1) cfg");
-        }
-        println!("---------\n\n");
-    }
-}
-
-fn parse_lrk_results(cfg_size: usize, cfg_result: &CfgGenResult, base_grammar_dir: &str) {
-    let lrk_cfgs = cfg_result.lrk_grammars();
-    println!("\n=> generated {}/{} lr(k) grammars", lrk_cfgs.len(), cfg_result.lr1_checks.len());
-
-    if !lrk_cfgs.is_empty() {
-        let target_cfg_dir = format!("{}/lr_k/{}", base_grammar_dir, cfg_size);
-        let _ = fs::create_dir(&target_cfg_dir).map_err(|_| format!("{} directory exists!", target_cfg_dir));
-        println!("=> copying lr(k) grammars to target grammar dir: {}", target_cfg_dir);
-        println!("--- lr(k) grammars ---");
-        for res in lrk_cfgs {
-            let rnd_str = rand_alphanumeric(8);
-            let target_cfg_f = format!("{}/{}", target_cfg_dir, rnd_str);
-            println!("copying {} => {}", &res.hyaccp, &target_cfg_f);
-            std::fs::copy(&res.hyaccp, &target_cfg_f)
-                .expect("Unable to copy lr(k) cfg");
-        }
-        println!("---------\n\n");
-    }
-}
-
-/// Generate a CFG of size `cfg_size`
-/// By `size`, we mean the number of rules
-pub(crate) fn start(cfg_size: usize, n: usize, base_grammar_dir: &str) {
-    let non_terms: Vec<String> = ASCII_UPPER
-        .choose_multiple(&mut thread_rng(), cfg_size - 1)
-        .map(|c| c.to_string())
-        .collect();
-    // the first non-term (and so first rule) is the root rule.
-    let terms: Vec<String> = ASCII_LOWER
-        .choose_multiple(&mut thread_rng(), cfg_size)
-        .map(|c| c.to_string())
-        .collect();
-
-    let now = Local::now();
-    let cfg_dir = format!("cfg_run_{}_{}_{}", now.hour(), now.minute(), now.second());
-    let temp_dir = format!("/tmp/{}", cfg_dir);
-    fs::create_dir(&temp_dir).expect("Unable to create a temporary directory");
-    println!("=> generating grammars (size: {}) in temp dir: {}", cfg_size, &temp_dir);
-    let cfg_gen = CfgGen::new(non_terms, terms, temp_dir.to_string());
-    let cfg_result = cfg_gen.gen_par(n);
-
-    // LR(1) grammars
-    parse_lr1_results(cfg_size, &cfg_result, base_grammar_dir);
-
-    // LR(k) grammars
-    parse_lrk_results(cfg_size, &cfg_result, base_grammar_dir);
-
-    // let results_txt = std::path::Path::new(&temp_dir).join("results.txt");
-    // cfg_result.write_results(&results_txt.as_path())
-    //     .expect("Unable to save the results from Cfg run in a file");
-    // println!("=> results stored in {}", results_txt.to_str().unwrap());
-    println!("=> cleaning up temporary directory: {}", temp_dir);
-    std::fs::remove_dir_all(&temp_dir)
-        .expect(&format!("Unable to remove temporary directory {}", temp_dir));
 }

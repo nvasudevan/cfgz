@@ -25,7 +25,7 @@ fn run(cmd_path: &str, args: &[&str]) -> io::Result<(Option<i32>, String, String
     Ok((output.status.code(), out, err))
 }
 
-pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
+pub fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
     let outputp = inputp.replace(".y", ".bison.c");
     let args: &[&str] = &[inputp, "-o", outputp.as_str()];
@@ -42,7 +42,7 @@ pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     Ok((true, msg))
 }
 
-pub(crate) fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
+pub fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
     let hyacc_run_secs = HYACC_TIMEOUT_SECS.to_string();
     let args: &[&str] = &[hyacc_run_secs.as_str(), HYACC_CMD, inputp, "-K", "-c"];
@@ -77,7 +77,7 @@ pub(crate) fn run_hyacc(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     Ok((false, msg))
 }
 
-pub(crate) fn run_lrpar(cfg_path: &Path) -> (bool, String) {
+pub fn run_lrpar(cfg_path: &Path) -> (bool, String) {
     let parse_res = CTParserBuilder::new()
         .yacckind(YaccKind::Grmtools)
         .process_file(cfg_path, "src/out");
@@ -93,7 +93,7 @@ pub(crate) fn run_lrpar(cfg_path: &Path) -> (bool, String) {
     }
 }
 
-pub(crate) fn run_lr1_tools(cfg: Cfg, cfg_no: usize, temp_dir: &str) -> CfgLr1Result {
+pub fn run_lr1_tools(cfg: Cfg, cfg_no: usize, temp_dir: &str) -> CfgLr1Result {
     if (cfg_no % 100) == 0 {
         eprint!(".");
     }

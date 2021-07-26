@@ -1,6 +1,9 @@
 use std::fmt;
 
-pub(crate) mod gen;
+use crate::grammars::gen::CfgGenError;
+
+pub mod gen;
+mod lr1_check;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) enum SymType {
@@ -159,7 +162,7 @@ impl CfgRule {
         }
     }
 
-    pub(crate) fn as_lrpar(&self) -> String {
+    fn as_lrpar(&self) -> String {
         let alts_s: Vec<String> = self.rhs.iter().
             map(|alt| alt.as_lrpar())
             .collect();
@@ -170,7 +173,7 @@ impl CfgRule {
 }
 
 #[derive(Debug)]
-pub(crate) struct Cfg {
+pub struct Cfg {
     rules: Vec<CfgRule>,
 }
 
@@ -195,22 +198,22 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn start_rule(&self) -> Option<&CfgRule> {
+    fn start_rule(&self) -> Option<&CfgRule> {
         self.rules.first()
     }
 
-    pub(crate) fn as_hyacc(&self) -> String {
+    fn as_hyacc(&self) -> String {
         let s_rule = self.start_rule()
             .expect("Cfg is missing a start rule!");
 
         format!("%start {}\n\n%%\n\n{}\n\n%%", s_rule.lhs, self)
     }
 
-    pub(crate) fn as_yacc(&self) -> String {
+    fn as_yacc(&self) -> String {
         format!("%define lr.type canonical-lr\n\n{}", self.as_hyacc())
     }
 
-    pub(crate) fn as_lrpar(&self) -> String {
+    fn as_lrpar(&self) -> String {
         let s_rule = self.start_rule()
             .expect("Cfg is missing a start rule!");
 
@@ -221,6 +224,19 @@ impl Cfg {
 
         format!("%start {}\n\n%%\n\n{}\n\n%%", s_rule.lhs, s)
     }
+}
+
+/// Generate `n` CFGs of size `cfg_sz` (`size` refers to the number of rules).
+/// The generated CFGs are saved in `out_dir` by size.
+pub(crate) fn generate(cfg_sz: usize, n: usize, out_dir: &str) -> Result<(), CfgGenError> {
+    println!("=> generating grammars (size: {}) in dir: {}", cfg_sz, &out_dir);
+    let cfg_gen = gen::CfgGen::new(cfg_sz);
+    let cfg_result = cfg_gen.gen_par(n);
+
+    // LR(1) grammars
+    cfg_result.write_results(out_dir)?;
+
+    Ok(())
 }
 
 #[cfg(test)]

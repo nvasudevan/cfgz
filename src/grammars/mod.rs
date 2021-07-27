@@ -228,12 +228,10 @@ impl Cfg {
 
 /// Generate `n` CFGs of size `cfg_sz` (`size` refers to the number of rules).
 /// The generated CFGs are saved in `out_dir` by size.
-pub(crate) fn generate(cfg_sz: usize, n: usize, out_dir: &str) -> Result<(), CfgGenError> {
+pub fn generate(cfg_sz: usize, n: usize, out_dir: &str) -> Result<(), CfgGenError> {
     println!("=> generating grammars (size: {}) in dir: {}", cfg_sz, &out_dir);
     let cfg_gen = gen::CfgGen::new(cfg_sz);
     let cfg_result = cfg_gen.gen_par(n);
-
-    // LR(1) grammars
     cfg_result.write_results(out_dir)?;
 
     Ok(())

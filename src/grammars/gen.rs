@@ -1,11 +1,11 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, io};
 
 use chrono::{
     prelude::Local,
     Timelike,
 };
-// use prettytable::row;
-// use prettytable::Table;
+use prettytable::{row, cell};
+use prettytable::Table;
 use rand::{
     distributions::Alphanumeric, prelude::SliceRandom,
     Rng,
@@ -194,27 +194,26 @@ impl CfgGenResult {
                 CfgGenError::new(
                     format!("Unable to remove src grammar directory {}, Error:\n{}",
                             &self.src_grammar_dir,
-                        e.to_string()
+                            e.to_string()
                     )
                 ))?;
 
         Ok(())
     }
 
-    // pub(crate) fn write_results(&self, results_txt: &Path) -> io::Result<()> {
-    //     let mut table = Table::new();
-    //     table.add_row(row!["cfg", "lrpar", "bison", "hyacc", "msg (lrpar)", "msg (bison)", "msg (hyacc)"]);
-    //     for res in &self.lr1_checks {
-    //         table.add_row(
-    //             row![
-    //                 res.hyaccp, res.lrpar_lr1, res.bison_lr1, res.hyacc_lr1, res.lrpar_msg, res.bison_msg, res.hyacc_msg
-    //             ]);
-    //     }
-    //
-    //     std::fs::write(results_txt, table.to_string())?;
-    //
-    //     Ok(())
-    // }
+    #[allow(dead_code)]
+    fn write_results_table(&self, results_txt: &Path) -> io::Result<()> {
+        let mut table = Table::new();
+        table.add_row(row!["cfg", "lrpar", "bison", "hyacc"]);
+        for res in &self.lr_checks {
+            table.add_row(
+                row![res.hyaccp, res.lrpar_lr1, res.bison_lr1, res.hyacc_lr1]
+            );
+        }
+        std::fs::write(results_txt, table.to_string())?;
+
+        Ok(())
+    }
 }
 
 pub(crate) struct CfgGen {

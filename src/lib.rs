@@ -1,6 +1,6 @@
 use crate::grammars::gen::CfgGenError;
 
-mod grammars;
+pub(crate) mod grammars;
 
 /// Generate `n` grammars between sizes (`from_size` and `to_size`)
 /// and save it in `out_dir`.

@@ -1,6 +1,7 @@
-use std::fmt;
+use std::{fmt, io};
 
 use crate::grammars::gen::CfgGenError;
+use std::path::Path;
 
 pub(crate) mod gen;
 mod lr1_check;
@@ -235,6 +236,12 @@ pub fn generate(cfg_sz: usize, n: usize, out_dir: &str) -> Result<(), CfgGenErro
     cfg_result.write_results(out_dir)?;
 
     Ok(())
+}
+
+pub fn lr1_check(gp: &Path) -> Result<bool, io::Error>  {
+    let (lr1, _) = lr1_check::run_bison(gp)?;
+
+    Ok(lr1)
 }
 
 #[cfg(test)]

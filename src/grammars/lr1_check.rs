@@ -25,7 +25,7 @@ fn run(cmd_path: &str, args: &[&str]) -> io::Result<(Option<i32>, String, String
     Ok((output.status.code(), out, err))
 }
 
-fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
+pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
     let inputp = cfg_path.to_str().unwrap();
     let outputp = inputp.replace(".y", ".bison.c");
     let args: &[&str] = &[inputp, "-o", outputp.as_str()];

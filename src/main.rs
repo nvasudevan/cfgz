@@ -1,6 +1,3 @@
-extern crate rayon;
-// #[macro_use] extern crate prettytable;
-
 use std::env;
 
 pub mod grammars;

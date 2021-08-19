@@ -15,6 +15,6 @@ pub fn generate(from_size: usize, to_size: usize, n: usize, out_dir: &str) -> Re
 }
 
 /// Uses bison to check if the grammar is LR(1)
-pub fn lr1_check(gp: &Path) -> Result<bool, io::Error>{
-    grammars::lr1_check(gp)
+pub fn lr1_check(gp: &Path, out: bool) -> Result<bool, io::Error>{
+    grammars::lr1_check(gp, out)
 }

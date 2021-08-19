@@ -238,8 +238,10 @@ pub fn generate(cfg_sz: usize, n: usize, out_dir: &str) -> Result<(), CfgGenErro
     Ok(())
 }
 
-pub fn lr1_check(gp: &Path) -> Result<bool, io::Error>  {
-    let (lr1, _) = lr1_check::run_bison(gp)?;
+/// Using `Bison` tool check if the given grammar `gp` is LR1.
+/// `out` determines if bison output is to be generated.
+pub fn lr1_check(gp: &Path, out: bool) -> Result<bool, io::Error>  {
+    let (lr1, _) = lr1_check::run_bison(gp, out)?;
 
     Ok(lr1)
 }

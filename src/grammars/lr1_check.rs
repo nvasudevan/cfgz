@@ -25,10 +25,17 @@ fn run(cmd_path: &str, args: &[&str]) -> io::Result<(Option<i32>, String, String
     Ok((output.status.code(), out, err))
 }
 
-pub(crate) fn run_bison(cfg_path: &Path) -> Result<(bool, String), io::Error> {
-    let inputp = cfg_path.to_str().unwrap();
-    let outputp = inputp.replace(".y", ".bison.c");
-    let args: &[&str] = &[inputp, "-o", outputp.as_str()];
+pub(crate) fn run_bison(cfg_path: &Path, out: bool) -> Result<(bool, String), io::Error> {
+    let input_p = cfg_path.to_str().unwrap();
+    let output_p = match out {
+        true => {
+            input_p.replace(".y", ".bison.c")
+        }
+        false => {
+            "/dev/null".to_owned()
+        }
+    };
+    let args: &[&str] = &[input_p, "-o", output_p.as_str()];
     let (_, _, err) = run(BISON_CMD, args)?;
     let msg = format!("err: {}\n", err);
 
@@ -112,7 +119,7 @@ pub(crate) fn run_lr1_tools(cfg: Cfg, cfg_no: usize, temp_dir: &str) -> CfgLr1Re
         .expect("Unable to write cfg in hyacc directory");
 
     let (lrpar_lr1, _) = run_lrpar(lrparp);
-    let (bison_lr1, _) = run_bison(bisonp)
+    let (bison_lr1, _) = run_bison(bisonp, false)
         .unwrap_or_else(|_| panic!("{} - Bison run failed!", bisonp.to_str().unwrap()));
     let (hyacc_lr1, _) = run_hyacc(hyaccp)
         .unwrap_or_else(|_| panic!("{} - Hyacc run failed!", hyaccp.to_str().unwrap()));
@@ -276,8 +283,8 @@ mod tests {
         let cfgp = Path::new(tempf.as_str());
         let _ = fs::write(&cfgp, cfg.as_yacc().as_str())
             .expect("Unable to write cfg in bison/yacc format");
-
-        let (is_lr1, msg) = run_bison(cfgp)
+        let out: bool = false;
+        let (is_lr1, msg) = run_bison(cfgp, out)
             .expect("Bison run failed!");
         println!("msg: {}", msg);
         assert!(is_lr1);
@@ -291,9 +298,9 @@ mod tests {
         let _ = fs::write(&cfgp, cfg.as_yacc().as_str())
             .expect("Unable to write cfg in bison/yacc format");
 
-        let (is_lr1, msg) = run_bison(cfgp)
+        let out: bool = false;
+        let (is_lr1, _) = run_bison(cfgp, out)
             .expect("Bison run failed!");
-        println!("{}", msg);
         assert!(!is_lr1);
     }
 

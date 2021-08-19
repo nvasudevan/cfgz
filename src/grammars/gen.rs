@@ -281,7 +281,7 @@ impl CfgGen {
                 RuleAlt::new(vec![])
             }
             1 => {
-                let sym = self.get_lex_sym(&lex_syms, &nt);
+                let sym = self.get_lex_sym(lex_syms, nt);
                 RuleAlt::new(vec![sym])
             }
             _ => {
@@ -496,7 +496,7 @@ impl CfgGen {
             })
             .collect();
 
-        CfgGenResult::new(cfg_result, grammar_dir.to_owned(), self.cfg_size)
+        CfgGenResult::new(cfg_result, grammar_dir, self.cfg_size)
     }
 }
 
